@@ -112,11 +112,9 @@ class MotorJoint:
             
             impulse_m = -Cdot_m / (inv_ia + inv_ib)
             
-            # Clamp to max torque
-            old_acc = self.acc_jm
+            # Clamp to max torque per substep
             max_impulse = self.motor_torque * dt
-            self.acc_jm = max(min(old_acc + impulse_m, max_impulse), -max_impulse)
-            impulse_m = self.acc_jm - old_acc
+            impulse_m = max(min(impulse_m, max_impulse), -max_impulse)
             
             self.a.angular_velocity -= impulse_m * inv_ia
             if self.b:
