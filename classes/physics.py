@@ -203,6 +203,8 @@ def detect_all(bodies: list) -> list:
     out = []
     for i in range(len(bodies)):
         for j in range(i+1, len(bodies)):
+            if not (bodies[i].layers & bodies[j].layers):
+                continue
             m = detect(bodies[i], bodies[j])
             if m: out.append(m)
     return out

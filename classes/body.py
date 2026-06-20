@@ -16,6 +16,7 @@ class Body:
         self.angle = 0.0
         self.angular_velocity = 0.0
         self.fixed = False
+        self.layers = {"Default"}
         self._snap()
 
     def _snap(self):

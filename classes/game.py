@@ -103,6 +103,8 @@ class Game:
         self.sim_state = STOPPED
         for b in self.bodies: b.reset()
         self.ctx_menu.close();  self.selected.clear()
+        if hasattr(self, '_last_manifolds'):
+            self._last_manifolds = []
 
     def _sim_action(self, a):
         if a == PLAYING: self._play()
@@ -130,6 +132,8 @@ class Game:
                 self.running = False
 
             elif ev.type == pygame.KEYDOWN:
+                if self.ctx_menu.is_open and self.ctx_menu.handle_key(ev):
+                    continue
                 self._key(ev.key)
 
             elif ev.type == pygame.MOUSEBUTTONDOWN:
@@ -302,7 +306,7 @@ class Game:
             b.draw_outline(self.canvas, cam, SEL_COLOR, 2)
 
         # Contact points
-        if hasattr(self, '_last_manifolds') and self._last_manifolds:
+        if DRAW_COLLISION_POINTS and hasattr(self, '_last_manifolds') and self._last_manifolds:
             for m in self._last_manifolds:
                 for cx, cy in m.contacts:
                     sx, sy = cam.w2s(cx, cy)
