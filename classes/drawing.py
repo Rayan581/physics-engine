@@ -74,11 +74,11 @@ class DrawingTool:
         self._points.append(pos)
         if len(self._points) == 2:
             a, b = self._points
-            x, y   = min(a[0], b[0]), min(a[1], b[1])
-            w, h   = abs(b[0] - a[0]), abs(b[1] - a[1])
+            x, y = min(a[0], b[0]), min(a[1], b[1])
+            w, h = abs(b[0]-a[0]), abs(b[1]-a[1])
             if w > 1 and h > 1:
                 from classes.body import RectBody
-                cb(RectBody(x, y, w, h))
+                cb(RectBody(x + w/2, y + h/2, w, h))  # centre-based
             self._points = []
             return True
         return False
