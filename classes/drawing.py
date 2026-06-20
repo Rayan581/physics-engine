@@ -1,179 +1,117 @@
-import pygame
 import math
+import pygame
 from config import Colors
 
-
-# How many pixels from the first polygon point counts as "close enough" to seal
-POLYGON_CLOSE_RADIUS = 20
+POLYGON_CLOSE_RADIUS = 20   # world-space pixels to snap-close a polygon
 
 
 class DrawingTool:
-    """
-    Manages the interactive shape-drawing state machine.
-
-    Modes
-    -----
-    None      – no tool active (view/select mode)
-    'rect'    – press R  – click corner A, then corner B
-    'circle'  – press C  – click centre, then a point on circumference
-    'polygon' – press P  – click vertices; click near first point to close
-    """
-
-    # Colour palette
-    GHOST_COLOR   = (120, 200, 255, 160)   # semi-transparent preview fill
-    OUTLINE_COLOR = (120, 200, 255)         # preview outline / guide lines
-    POINT_COLOR   = (255, 220, 80)          # placed-vertex dots
-    CLOSE_RING_COLOR = (80, 255, 140)       # ring shown near first poly point
+    GHOST_COLOR   = (120, 200, 255)
+    OUTLINE_COLOR = (120, 200, 255)
+    CLOSE_RING_COLOR = (80, 255, 140)
 
     def __init__(self):
-        self.mode: str | None = None        # current tool
-        self._points: list[tuple[int, int]] = []  # clicks collected so far
+        self.mode: str | None = None
+        self._points: list[tuple] = []   # world-space clicks
 
-    # ------------------------------------------------------------------
-    # Public helpers
-    # ------------------------------------------------------------------
-
-    def set_mode(self, mode: str | None):
-        """Switch tool and reset any in-progress drawing."""
-        self.mode = mode
-        self._points = []
+    def set_mode(self, mode):
+        self.mode = mode;  self._points = []
 
     def cancel(self):
-        """Escape / deselect: cancel current stroke without placing shape."""
-        self._points = []
-        self.mode = None
+        self.mode = None;  self._points = []
 
-    def handle_click(self, pos: tuple[int, int], add_body_callback):
-        """
-        Process a left-click at *pos*.
-        Calls add_body_callback(body) when a shape is fully defined.
-        Returns True if a shape was completed.
-        """
-        if self.mode == 'rect':
-            return self._handle_rect(pos, add_body_callback)
-        elif self.mode == 'circle':
-            return self._handle_circle(pos, add_body_callback)
-        elif self.mode == 'polygon':
-            return self._handle_polygon(pos, add_body_callback)
+    def handle_click(self, world_pos, add_body_cb):
+        if self.mode == 'rect':    return self._do_rect(world_pos, add_body_cb)
+        if self.mode == 'circle':  return self._do_circle(world_pos, add_body_cb)
+        if self.mode == 'polygon': return self._do_polygon(world_pos, add_body_cb)
         return False
 
-    def draw_preview(self, surface: pygame.Surface, mouse_pos: tuple[int, int]):
-        """Render live ghost preview on *surface* using the current mouse position."""
-        if self.mode == 'rect':
-            self._draw_rect_preview(surface, mouse_pos)
-        elif self.mode == 'circle':
-            self._draw_circle_preview(surface, mouse_pos)
-        elif self.mode == 'polygon':
-            self._draw_polygon_preview(surface, mouse_pos)
+    def draw_preview(self, surface, cam, world_mouse):
+        if self.mode == 'rect':    self._prev_rect(surface, cam, world_mouse)
+        elif self.mode == 'circle':  self._prev_circle(surface, cam, world_mouse)
+        elif self.mode == 'polygon': self._prev_polygon(surface, cam, world_mouse)
 
-    # ------------------------------------------------------------------
-    # Rectangle
-    # ------------------------------------------------------------------
+    # ── rect ────────────────────────────────────────────────────────────────────
 
-    def _handle_rect(self, pos, cb):
+    def _do_rect(self, pos, cb):
         self._points.append(pos)
         if len(self._points) == 2:
             a, b = self._points
-            x, y = min(a[0], b[0]), min(a[1], b[1])
-            w, h = abs(b[0]-a[0]), abs(b[1]-a[1])
-            if w > 1 and h > 1:
+            x,y = min(a[0],b[0]), min(a[1],b[1])
+            w,h = abs(b[0]-a[0]), abs(b[1]-a[1])
+            if w>1 and h>1:
                 from classes.body import RectBody
-                cb(RectBody(x + w/2, y + h/2, w, h))  # centre-based
-            self._points = []
-            return True
+                cb(RectBody(x+w/2, y+h/2, w, h))
+            self._points = [];  return True
         return False
 
-    def _draw_rect_preview(self, surface, mouse):
-        if not self._points:
-            return
-        a = self._points[0]
-        x, y = min(a[0], mouse[0]), min(a[1], mouse[1])
-        w, h = abs(mouse[0] - a[0]), abs(mouse[1] - a[1])
-        if w < 1 or h < 1:
-            return
-        ghost = pygame.Surface((w, h), pygame.SRCALPHA)
-        ghost.fill((*self.GHOST_COLOR[:3], 60))
-        surface.blit(ghost, (x, y))
-        pygame.draw.rect(surface, self.OUTLINE_COLOR, (x, y, w, h), 2)
+    def _prev_rect(self, surface, cam, wm):
+        if not self._points: return
+        sa = cam.w2s(*self._points[0]);  sm = cam.w2s(*wm)
+        x=min(sa[0],sm[0]); y=min(sa[1],sm[1])
+        w=abs(sm[0]-sa[0]); h=abs(sm[1]-sa[1])
+        if w<1 or h<1: return
+        g = pygame.Surface((int(w),int(h)), pygame.SRCALPHA)
+        g.fill((*self.GHOST_COLOR, 40))
+        surface.blit(g, (int(x),int(y)))
+        pygame.draw.rect(surface, self.OUTLINE_COLOR, (int(x),int(y),int(w),int(h)), 2)
 
-    # ------------------------------------------------------------------
-    # Circle
-    # ------------------------------------------------------------------
+    # ── circle ──────────────────────────────────────────────────────────────────
 
-    def _handle_circle(self, pos, cb):
+    def _do_circle(self, pos, cb):
         self._points.append(pos)
         if len(self._points) == 2:
-            cx, cy = self._points[0]
-            rx, ry = self._points[1]
-            radius = int(math.hypot(rx - cx, ry - cy))
-            if radius > 1:
+            cx,cy = self._points[0];  rx,ry = self._points[1]
+            r = math.hypot(rx-cx, ry-cy)
+            if r>1:
                 from classes.body import CircleBody
-                cb(CircleBody(cx, cy, radius))
-            self._points = []
-            return True
+                cb(CircleBody(cx, cy, r))
+            self._points = [];  return True
         return False
 
-    def _draw_circle_preview(self, surface, mouse):
-        if not self._points:
-            return
-        centre = self._points[0]
-        radius = int(math.hypot(mouse[0] - centre[0], mouse[1] - centre[1]))
-        if radius < 1:
-            return
-        # ghost fill via a temporary surface to support alpha
-        diam = radius * 2
-        ghost = pygame.Surface((diam, diam), pygame.SRCALPHA)
-        pygame.draw.circle(ghost, (*self.GHOST_COLOR[:3], 60),
-                           (radius, radius), radius)
-        surface.blit(ghost, (centre[0] - radius, centre[1] - radius))
-        pygame.draw.circle(surface, self.OUTLINE_COLOR, centre, radius, 2)
-        # radius guide line
-        pygame.draw.line(surface, self.OUTLINE_COLOR, centre, mouse, 1)
+    def _prev_circle(self, surface, cam, wm):
+        if not self._points: return
+        sc = cam.w2s(*self._points[0]);  sm = cam.w2s(*wm)
+        r = int(math.hypot(sm[0]-sc[0], sm[1]-sc[1]))
+        if r<1: return
+        g = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+        pygame.draw.circle(g, (*self.GHOST_COLOR, 40), (r,r), r)
+        surface.blit(g, (int(sc[0])-r, int(sc[1])-r))
+        pygame.draw.circle(surface, self.OUTLINE_COLOR, (int(sc[0]),int(sc[1])), r, 2)
+        pygame.draw.line(surface, self.OUTLINE_COLOR, (int(sc[0]),int(sc[1])), (int(sm[0]),int(sm[1])), 1)
 
-    # ------------------------------------------------------------------
-    # Polygon
-    # ------------------------------------------------------------------
+    # ── polygon ─────────────────────────────────────────────────────────────────
 
-    def _near_first(self, pos) -> bool:
-        """True if *pos* is within POLYGON_CLOSE_RADIUS of the first vertex."""
-        if not self._points:
-            return False
-        dx = pos[0] - self._points[0][0]
-        dy = pos[1] - self._points[0][1]
-        return math.hypot(dx, dy) <= POLYGON_CLOSE_RADIUS
+    def _near_first(self, wpos):
+        if not self._points: return False
+        return math.hypot(wpos[0]-self._points[0][0],
+                          wpos[1]-self._points[0][1]) <= POLYGON_CLOSE_RADIUS
 
-    def _handle_polygon(self, pos, cb):
-        # Close the polygon when clicking near the first point (need ≥ 3 pts)
+    def _do_polygon(self, pos, cb):
         if len(self._points) >= 3 and self._near_first(pos):
             from classes.body import PolygonBody
             cb(PolygonBody(list(self._points)))
-            self._points = []
-            return True
+            self._points = [];  return True
         self._points.append(pos)
         return False
 
-    def _draw_polygon_preview(self, surface, mouse):
-        all_pts = self._points + [mouse]
-
-        # Draw edges so far
-        if len(all_pts) >= 2:
-            pygame.draw.lines(surface, self.OUTLINE_COLOR, False, all_pts, 2)
-
-        # Ghost filled polygon (at least 3 real points + mouse)
-        if len(all_pts) >= 3:
-            ghost = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-            pygame.draw.polygon(ghost, (*self.GHOST_COLOR[:3], 40), all_pts)
-            surface.blit(ghost, (0, 0))
-
-        # Closing edge back to first point
+    def _prev_polygon(self, surface, cam, wm):
+        all_w = self._points + [wm]
+        all_s = [(int(x),int(y)) for x,y in [cam.w2s(*p) for p in all_w]]
+        if len(all_s) >= 2:
+            pygame.draw.lines(surface, self.OUTLINE_COLOR, False, all_s, 2)
+        if len(all_s) >= 3:
+            g = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            pygame.draw.polygon(g, (*self.GHOST_COLOR, 30), all_s)
+            surface.blit(g, (0,0))
         if len(self._points) >= 2:
-            pygame.draw.line(surface, (*self.OUTLINE_COLOR, 100),
-                             mouse, self._points[0], 1)
-
-        # Highlight first point with a "close ring" so the user knows where
-        # to click to seal the polygon
+            pygame.draw.line(surface, self.OUTLINE_COLOR, all_s[-1], all_s[0], 1)
         if self._points:
-            near = self._near_first(mouse)
-            ring_col = (80, 255, 140) if near else (200, 200, 200)
-            pygame.draw.circle(surface, ring_col, self._points[0],
-                               POLYGON_CLOSE_RADIUS, 2)
+            near = self._near_first(wm)
+            first_s = (int(x) for x in cam.w2s(*self._points[0]))
+            ring_r = max(2, int(POLYGON_CLOSE_RADIUS * cam.zoom))
+            pygame.draw.circle(surface,
+                               self.CLOSE_RING_COLOR if near else (160,160,160),
+                               (int(cam.w2s(*self._points[0])[0]),
+                                int(cam.w2s(*self._points[0])[1])),
+                               ring_r, 2)

@@ -3,6 +3,9 @@ HEIGHT = 600
 FPS    = 60
 TITLE  = "Physics Engine"
 
+# Beyond this distance from world origin in any direction, bodies are frozen
+WORLD_KILL_LIMIT = 50_000   # pixels
+
 
 class Colors:
     WHITE = (255, 255, 255)
@@ -13,9 +16,8 @@ class Colors:
 
 
 # ── Physics ─────────────────────────────────────────────────────────────────────
-GRAVITY              = 500.0  # px / s²
-PHYSICS_SUBSTEPS     = 4      # sub-steps per frame
-BOUNDARY_RESTITUTION = 0.4    # bounciness of canvas walls / floor
+GRAVITY          = 500.0  # px / s²
+PHYSICS_SUBSTEPS = 8      # sub-steps per frame (higher = stabler collisions)
 
 # ── Body visuals ────────────────────────────────────────────────────────────────
 BODY_COLOR       = (200, 200, 220)
