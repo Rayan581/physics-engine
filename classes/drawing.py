@@ -20,16 +20,18 @@ class DrawingTool:
     def cancel(self):
         self.mode = None;  self._points = []
 
-    def handle_click(self, world_pos, add_body_cb):
+    def handle_click(self, world_pos, add_body_cb, bodies=None, add_joint_cb=None):
         if self.mode == 'rect':    return self._do_rect(world_pos, add_body_cb)
         if self.mode == 'circle':  return self._do_circle(world_pos, add_body_cb)
         if self.mode == 'polygon': return self._do_polygon(world_pos, add_body_cb)
+        if self.mode == 'motor':   return self._do_motor(world_pos, bodies, add_joint_cb)
         return False
 
     def draw_preview(self, surface, cam, world_mouse):
         if self.mode == 'rect':    self._prev_rect(surface, cam, world_mouse)
         elif self.mode == 'circle':  self._prev_circle(surface, cam, world_mouse)
         elif self.mode == 'polygon': self._prev_polygon(surface, cam, world_mouse)
+        elif self.mode == 'motor':   self._prev_motor(surface, cam, world_mouse)
 
     # ── rect ────────────────────────────────────────────────────────────────────
 
@@ -115,3 +117,27 @@ class DrawingTool:
                                (int(cam.w2s(*self._points[0])[0]),
                                 int(cam.w2s(*self._points[0])[1])),
                                ring_r, 2)
+
+    # ── motor ───────────────────────────────────────────────────────────────────
+
+    def _do_motor(self, pos, bodies, add_joint_cb):
+        if not bodies or not add_joint_cb: return False
+        
+        # Hit test all bodies under cursor, in reverse order (top first)
+        hit_bodies = [b for b in reversed(bodies) if b.hit_test(*pos)]
+        
+        if not hit_bodies:
+            return False  # Need at least one body to attach a motor to
+            
+        body_a = hit_bodies[0]
+        body_b = hit_bodies[1] if len(hit_bodies) > 1 else None
+        
+        from classes.joints import MotorJoint
+        joint = MotorJoint(body_a, body_b, pos[0], pos[1])
+        add_joint_cb(joint)
+        return True
+
+    def _prev_motor(self, surface, cam, wm):
+        sm = cam.w2s(*wm)
+        pygame.draw.circle(surface, (255, 150, 0), (int(sm[0]), int(sm[1])), max(4, int(6*cam.zoom)), 2)
+        pygame.draw.circle(surface, (255, 150, 0), (int(sm[0]), int(sm[1])), max(1, int(2*cam.zoom)))

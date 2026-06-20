@@ -22,6 +22,13 @@ def _icon_polygon(surf, cx, cy, active):
             cy + int(12*math.sin(math.radians(-90+i*72)))) for i in range(5)]
     pygame.draw.polygon(surf, col, pts, 2)
 
+def _icon_motor(surf, cx, cy, active):
+    col = TB_ICON_ACTIVE if active else TB_ICON_COLOR
+    pygame.draw.circle(surf, col, (cx, cy), 10, 2)
+    pygame.draw.circle(surf, col, (cx, cy), 3)
+    pygame.draw.line(surf, col, (cx, cy-10), (cx, cy+10), 2)
+    pygame.draw.line(surf, col, (cx-10, cy), (cx+10, cy), 2)
+
 
 # ── ToolButton ───────────────────────────────────────────────────────────────────
 
@@ -107,6 +114,7 @@ class Toolbox:
         'rect':    ["Click corner A,", "then corner B"],
         'circle':  ["Click center,",   "then radius pt"],
         'polygon': ["Click vertices,", "close near start"],
+        'motor':   ["Click object", "to attach motor"],
     }
 
     def __init__(self, x, y, width, height):
@@ -124,6 +132,7 @@ class Toolbox:
             ("rect",    "Rect",   _icon_rect,    "R"),
             ("circle",  "Circle", _icon_circle,  "C"),
             ("polygon", "Poly",   _icon_polygon, "P"),
+            ("motor",   "Motor",  _icon_motor,   "M"),
         ]
         y = self.rect.y + 38
         for name, label, fn, key in tools:

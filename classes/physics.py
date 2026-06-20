@@ -199,13 +199,23 @@ def positional_correction(m: Manifold, percent=0.8, slop=0.1):
     m.b.y -= m.b.inv_mass * corr * m.normal[1]
 
 
-def detect_all(bodies: list) -> list:
+def detect_all(bodies: list, joints: list = None) -> list:
+    joints = joints or []
+    connected_pairs = set()
+    for j in joints:
+        if j.b:
+            connected_pairs.add((id(j.a), id(j.b)))
+            connected_pairs.add((id(j.b), id(j.a)))
+            
     out = []
     for i in range(len(bodies)):
         for j in range(i+1, len(bodies)):
-            if not (bodies[i].layers & bodies[j].layers):
+            a, b = bodies[i], bodies[j]
+            if not (a.layers & b.layers):
                 continue
-            m = detect(bodies[i], bodies[j])
+            if (id(a), id(b)) in connected_pairs:
+                continue
+            m = detect(a, b)
             if m: out.append(m)
     return out
 

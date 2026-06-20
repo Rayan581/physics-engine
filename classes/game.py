@@ -6,6 +6,7 @@ from classes.drawing import DrawingTool
 from classes.toolbox import Toolbox
 from classes.context_menu import ContextMenu
 from classes.physics import detect_all, resolve, positional_correction, kill_oob
+from classes.joints import MotorJoint
 
 STOPPED = 'stopped'
 PLAYING = 'playing'
@@ -27,6 +28,7 @@ class Game:
         self.running = True
 
         self.bodies:    list[Body] = []
+        self.joints:    list[MotorJoint] = []
         self.selected:  set[Body]  = set()
         self.sim_state = STOPPED
 
@@ -66,6 +68,14 @@ class Game:
                 return b
         return None
 
+    def _joint_at_world(self, wx, wy):
+        import math
+        for j in reversed(self.joints):
+            ax, ay = j.get_anchor_a()
+            if math.hypot(wx - ax, wy - ay) < max(10.0, 10.0 / self.camera.zoom):
+                return j
+        return None
+
     def _bodies_in_band(self):
         if self._ld_down_w is None or self._band_end_w is None:
             return set()
@@ -83,10 +93,20 @@ class Game:
         for _ in range(PHYSICS_SUBSTEPS):
             for body in self.bodies:
                 body.integrate(sub)
-            self._last_manifolds = detect_all(self.bodies)
+                
+            self._last_manifolds = detect_all(self.bodies, self.joints)
             for m in self._last_manifolds:
                 resolve(m)
+                
+            for j in self.joints:
+                j.solve_velocity(sub)
+                
+            for m in self._last_manifolds:
                 positional_correction(m)
+                
+            for j in self.joints:
+                j.solve_position()
+                
             for body in self.bodies:
                 kill_oob(body)
 
@@ -102,6 +122,10 @@ class Game:
     def _stop(self):
         self.sim_state = STOPPED
         for b in self.bodies: b.reset()
+        for j in self.joints:
+            # Re-calculate ref_angle on stop to avoid drift from manual edits
+            angle_b = j.b.angle if j.b else 0.0
+            j.ref_angle = angle_b - j.a.angle
         self.ctx_menu.close();  self.selected.clear()
         if hasattr(self, '_last_manifolds'):
             self._last_manifolds = []
@@ -165,6 +189,24 @@ class Game:
             self.drawing.set_mode(None if self.drawing.mode=='circle'  else 'circle')
         elif k == pygame.K_p and self.sim_state == STOPPED:
             self.drawing.set_mode(None if self.drawing.mode=='polygon' else 'polygon')
+        elif k == pygame.K_m and self.sim_state == STOPPED:
+            self.drawing.set_mode(None if self.drawing.mode=='motor' else 'motor')
+        elif k in (pygame.K_DELETE, pygame.K_BACKSPACE) and self.sim_state == STOPPED:
+            if self.ctx_menu.is_open and self.ctx_menu.is_motor:
+                # Delete the specific motor currently being edited
+                motor = self.ctx_menu._body
+                if motor in self.joints:
+                    self.joints.remove(motor)
+                self.ctx_menu.close()
+            elif self.selected:
+                # Delete selected bodies
+                for b in self.selected:
+                    if b in self.bodies:
+                        self.bodies.remove(b)
+                # Delete any joints attached to deleted bodies
+                self.joints = [j for j in self.joints if j.a not in self.selected and j.b not in self.selected]
+                self.selected.clear()
+                self.ctx_menu.close()
 
     # ── left mouse ──────────────────────────────────────────────────────────────
 
@@ -192,7 +234,7 @@ class Game:
 
         # Drawing tool takes priority
         if self.drawing.mode and self.sim_state == STOPPED:
-            self.drawing.handle_click(wp, self.bodies.append)
+            self.drawing.handle_click(wp, self.bodies.append, self.bodies, self.joints.append)
             return
 
         # Begin left-drag tracking
@@ -258,9 +300,13 @@ class Game:
         cp = self._canvas_pos(pos)
         if not self._rd_moved and self.sim_state != PLAYING:
             wp = self.camera.s2w(*cp)
-            hit = self._body_at_world(*wp)
-            if hit:
-                self.ctx_menu.open(hit, *pos)
+            hit_j = self._joint_at_world(*wp)
+            if hit_j:
+                self.ctx_menu.open(hit_j, *pos)
+            else:
+                hit = self._body_at_world(*wp)
+                if hit:
+                    self.ctx_menu.open(hit, *pos)
         self._rd_down_s = None;  self._rd_moved = False
 
     def _scroll(self, pos, factor):
@@ -300,6 +346,12 @@ class Game:
         # Bodies
         for b in self.bodies:
             b.draw(self.canvas, cam)
+
+        # Joints
+        for j in self.joints:
+            j.draw(self.canvas, cam)
+            if self.ctx_menu.is_open and self.ctx_menu._body == j and j.limits_enabled:
+                j.draw_limits(self.canvas, cam)
 
         # Selection outlines
         for b in self.selected:
