@@ -52,11 +52,52 @@ class Body:
     def draw(self, surface, cam):         raise NotImplementedError
     def draw_outline(self, surface, cam, color, width=2): raise NotImplementedError
 
+    def to_dict(self):
+        return {
+            "type": type(self).__name__,
+            "x": self.x, "y": self.y,
+            "vx": self.vx, "vy": self.vy,
+            "angle": self.angle, "angular_velocity": self.angular_velocity,
+            "mass": self.mass, "restitution": self.restitution,
+            "fixed": self.fixed,
+            "layers": list(self.layers),
+            "_init": self._init
+        }
+
+    def _load_base_dict(self, d):
+        self.vx = d.get("vx", 0.0)
+        self.vy = d.get("vy", 0.0)
+        self.angle = d.get("angle", 0.0)
+        self.angular_velocity = d.get("angular_velocity", 0.0)
+        self.fixed = d.get("fixed", False)
+        self.layers = set(d.get("layers", ["Default"]))
+        self._init = d.get("_init", dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=0.0, av=0.0))
+
+    @staticmethod
+    def from_dict(d: dict):
+        typ = d.get("type")
+        if typ == "RectBody":
+            b = RectBody(d["x"], d["y"], d["width"], d["height"], d["mass"], d["restitution"])
+        elif typ == "CircleBody":
+            b = CircleBody(d["x"], d["y"], d["radius"], d["mass"], d["restitution"])
+        elif typ == "PolygonBody":
+            b = PolygonBody(d["points"], d["mass"], d["restitution"])
+        else:
+            return None
+        b._load_base_dict(d)
+        return b
+
 
 class RectBody(Body):
     def __init__(self, cx, cy, w, h, mass=1.0, restitution=0.5):
         super().__init__(cx, cy, mass, restitution)
         self.width = float(w);  self.height = float(h)
+
+    def to_dict(self):
+        d = super().to_dict()
+        d["width"] = self.width
+        d["height"] = self.height
+        return d
 
     def moment_of_inertia(self):
         return self.mass * (self.width**2 + self.height**2) / 12.0
@@ -107,6 +148,11 @@ class CircleBody(Body):
         super().__init__(cx, cy, mass, restitution)
         self.radius = float(radius)
 
+    def to_dict(self):
+        d = super().to_dict()
+        d["radius"] = self.radius
+        return d
+
     def moment_of_inertia(self):  return .5*self.mass*self.radius**2
     def get_vertices(self):        return [(self.x, self.y)]
     def get_axes(self):            return []
@@ -139,6 +185,14 @@ class PolygonBody(Body):
         cx, cy = self._centroid(points)
         super().__init__(cx, cy, mass, restitution)
         self.local_points = [(p[0]-cx, p[1]-cy) for p in points]
+
+    def to_dict(self):
+        d = super().to_dict()
+        # Restore absolute points for saving (though they will be offset from 0,0 since we pass them to constructor)
+        # Actually, PolygonBody expects absolute points, but our constructor centers them.
+        # If we just pass `self.local_points` shifted by `self.x, self.y`, it will reconstruct correctly.
+        d["points"] = [[px + self.x, py + self.y] for px, py in self.local_points]
+        return d
 
     @staticmethod
     def _centroid(pts):

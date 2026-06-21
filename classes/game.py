@@ -158,7 +158,7 @@ class Game:
             elif ev.type == pygame.KEYDOWN:
                 if self.ctx_menu.is_open and self.ctx_menu.handle_key(ev):
                     continue
-                self._key(ev.key)
+                self._key(ev)
 
             elif ev.type == pygame.MOUSEBUTTONDOWN:
                 if ev.button == 1: self._lmb_down(ev.pos)
@@ -173,7 +173,42 @@ class Game:
             elif ev.type == pygame.MOUSEMOTION:
                 self._motion(ev.pos)
 
-    def _key(self, k):
+    def _key(self, ev):
+        k = ev.key
+        mods = pygame.key.get_mods()
+        ctrl = bool(mods & pygame.KMOD_CTRL)
+
+        if ctrl and self.sim_state == STOPPED:
+            from classes.serialization import get_save_path, get_open_path, save_to_file, load_from_file
+            if k == pygame.K_s:
+                # Save Scene
+                path = get_save_path()
+                if path: save_to_file(path, self.bodies, self.joints)
+            elif k == pygame.K_o:
+                # Load Scene
+                path = get_open_path()
+                if path:
+                    self.bodies, self.joints = load_from_file(path)
+                    self.selected.clear()
+                    self.ctx_menu.close()
+            elif k == pygame.K_e:
+                # Export Selection
+                if self.selected:
+                    path = get_save_path()
+                    if path:
+                        # Find joints that only connect selected bodies
+                        sel_joints = [j for j in self.joints if j.a in self.selected and (j.b is None or j.b in self.selected)]
+                        save_to_file(path, list(self.selected), sel_joints)
+            elif k == pygame.K_i:
+                # Import Model
+                path = get_open_path()
+                if path:
+                    new_bodies, new_joints = load_from_file(path)
+                    self.bodies.extend(new_bodies)
+                    self.joints.extend(new_joints)
+                    self.selected = set(new_bodies)
+            return
+
         if k == pygame.K_ESCAPE:
             if self.ctx_menu.is_open: self.ctx_menu.close()
             elif self.drawing.mode:   self.drawing.cancel()

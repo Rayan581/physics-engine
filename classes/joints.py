@@ -43,6 +43,34 @@ class MotorJoint:
         self.acc_jy = 0.0
         self.acc_jm = 0.0
         self.acc_jl = 0.0
+
+    def to_dict(self):
+        return {
+            "local_a": self.local_a,
+            "local_b": self.local_b,
+            "ref_angle": self.ref_angle,
+            "motor_enabled": self.motor_enabled,
+            "motor_speed": self.motor_speed,
+            "motor_torque": self.motor_torque,
+            "limits_enabled": self.limits_enabled,
+            "min_angle": self.min_angle,
+            "max_angle": self.max_angle
+        }
+        
+    @staticmethod
+    def from_dict(d: dict, body_a, body_b):
+        # We instantiate with temporary world anchors (0,0) and then overwrite with serialized locals
+        j = MotorJoint(body_a, body_b, 0, 0)
+        j.local_a = tuple(d.get("local_a", (0, 0)))
+        j.local_b = tuple(d.get("local_b", (0, 0)))
+        j.ref_angle = d.get("ref_angle", 0.0)
+        j.motor_enabled = d.get("motor_enabled", False)
+        j.motor_speed = d.get("motor_speed", 1.0)
+        j.motor_torque = d.get("motor_torque", 100000.0)
+        j.limits_enabled = d.get("limits_enabled", False)
+        j.min_angle = d.get("min_angle", -math.pi / 4.0)
+        j.max_angle = d.get("max_angle", math.pi / 4.0)
+        return j
         
     def get_anchor_a(self):
         rx, ry = _rot(*self.local_a, self.a.angle)
