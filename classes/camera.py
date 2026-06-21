@@ -4,8 +4,8 @@ class Camera:
     def __init__(self, view_w: int, view_h: int):
         self.view_w = view_w
         self.view_h = view_h
-        self.cam_x  = view_w / 2.0   # world point at view centre
-        self.cam_y  = view_h / 2.0
+        self.cam_x  = 0.0   # world point at view centre
+        self.cam_y  = 0.0
         self.zoom   = 1.0
 
     def w2s(self, wx, wy):
@@ -32,6 +32,6 @@ class Camera:
         self.cam_y -= dy / self.zoom
 
     def reset(self):
-        self.cam_x = self.view_w / 2.0
-        self.cam_y = self.view_h / 2.0
+        self.cam_x = 0.0
+        self.cam_y = 0.0
         self.zoom  = 1.0

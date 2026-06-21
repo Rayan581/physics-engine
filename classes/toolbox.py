@@ -107,6 +107,26 @@ class SimButton:
             pygame.draw.rect(surface, col, (cx-5, cy-5, 10, 10))
 
 
+# ── TextButton ───────────────────────────────────────────────────────────────────
+
+class TextButton:
+    def __init__(self, name, label, rect):
+        self.name = name
+        self.label = label
+        self.rect = rect
+
+    def draw(self, surface, hovered, font):
+        r = self.rect
+        bg = TB_BTN_HOVER_BG if hovered else TB_BTN_BG
+        pygame.draw.rect(surface, bg, r, border_radius=5)
+        if hovered:
+            pygame.draw.rect(surface, TB_BTN_BORDER, r, 1, border_radius=5)
+            
+        if font:
+            lbl = font.render(self.label, True, TB_LABEL_COLOR)
+            surface.blit(lbl, (r.centerx - lbl.get_width()//2, r.centery - lbl.get_height()//2 + 1))
+
+
 # ── Toolbox ───────────────────────────────────────────────────────────────────────
 
 class Toolbox:
@@ -121,8 +141,10 @@ class Toolbox:
         self.rect = pygame.Rect(x, y, width, height)
         self._tool_btns: list[ToolButton] = []
         self._sim_btns:  list[SimButton]  = []
+        self._action_btns: list[TextButton] = []
         self._title_font = None
         self._hint_font  = None
+        self._action_font = None
         self._build()
 
     def _build(self):
@@ -148,11 +170,22 @@ class Toolbox:
             rx = self.rect.x + pad + i*(bw+2)
             self._sim_btns.append(SimButton(name, pygame.Rect(rx, y, bw, bh)))
 
+        # Action buttons
+        y += bh + 14
+        bw2 = (self.rect.width - pad*2 - 2) // 2
+        self._action_btns.append(TextButton('save', 'Save', pygame.Rect(self.rect.x + pad, y, bw2, bh)))
+        self._action_btns.append(TextButton('load', 'Load', pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh)))
+
+        y += bh + 4
+        self._action_btns.append(TextButton('export', 'Export', pygame.Rect(self.rect.x + pad, y, bw2, bh)))
+        self._action_btns.append(TextButton('import', 'Import', pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh)))
+
     def init_fonts(self):
         ToolButton.init_fonts()
         SimButton.init_fonts()
         self._title_font = pygame.font.SysFont("segoeui", 12, bold=True)
         self._hint_font  = pygame.font.SysFont("segoeui", 10)
+        self._action_font = pygame.font.SysFont("segoeui", 11)
 
     # ── queries ──────────────────────────────────────────────────────────────────
 
@@ -168,6 +201,13 @@ class Toolbox:
     def get_sim_action_at(self, pos) -> str | None:
         """Returns 'playing' | 'paused' | 'stopped' | None."""
         for b in self._sim_btns:
+            if b.rect.collidepoint(pos):
+                return b.name
+        return None
+
+    def get_action_at(self, pos) -> str | None:
+        """Returns 'save' | 'load' | None."""
+        for b in self._action_btns:
             if b.rect.collidepoint(pos):
                 return b.name
         return None
@@ -197,6 +237,14 @@ class Toolbox:
         # Sim control buttons
         for b in self._sim_btns:
             b.draw(surface, sim_state, b.rect.collidepoint(mouse_pos))
+
+        # Separator before actions
+        sep_y2 = self._action_btns[0].rect.y - 8
+        pygame.draw.line(surface, TB_BORDER, (r.x+6, sep_y2), (r.right-7, sep_y2))
+
+        # Action buttons
+        for b in self._action_btns:
+            b.draw(surface, b.rect.collidepoint(mouse_pos), self._action_font)
 
         # Usage hint at bottom
         if active_tool and sim_state == 'stopped' and self._hint_font:

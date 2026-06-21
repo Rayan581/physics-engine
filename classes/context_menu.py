@@ -20,6 +20,16 @@ class ContextMenu:
         self._layer_text = ""
         self._layer_edit = False
         
+        self._r_text = ""
+        self._g_text = ""
+        self._b_text = ""
+        self._r_edit = False
+        self._g_edit = False
+        self._b_edit = False
+        
+        self._presets = [(255, 255, 255)] * 10
+        self._load_presets()
+        
         self._speed_text = ""
         self._speed_edit = False
         self._torque_text = ""
@@ -32,6 +42,25 @@ class ContextMenu:
     def init_fonts(self):
         self._font_t = pygame.font.SysFont("segoeui", 13, bold=True)
         self._font   = pygame.font.SysFont("segoeui", 12)
+
+    def _load_presets(self):
+        import json, os
+        if os.path.exists('colors.json'):
+            try:
+                with open('colors.json', 'r') as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and len(data) == 10:
+                        self._presets = [tuple(c) for c in data]
+            except Exception:
+                pass
+
+    def _save_presets(self):
+        import json
+        try:
+            with open('colors.json', 'w') as f:
+                json.dump(self._presets, f)
+        except Exception:
+            pass
 
     # ── state ───────────────────────────────────────────────────────────────────
 
@@ -59,24 +88,34 @@ class ContextMenu:
             self._min_text = f"{math.degrees(body.min_angle):.0f}"
             self._max_text = f"{math.degrees(body.max_angle):.0f}"
         else:
-            self.H = 174
+            self.H = 260
             self._mass_text = f"{body.mass:.1f}"
             self._layer_text = ", ".join(sorted(body.layers))
+            self._r_text = f"{body.color[0]}"
+            self._g_text = f"{body.color[1]}"
+            self._b_text = f"{body.color[2]}"
             
         self._rect = pygame.Rect(mx, my, self.W, self.H)
         self._mass_edit = False
         self._layer_edit = False
+        self._r_edit = False
+        self._g_edit = False
+        self._b_edit = False
         self._speed_edit = False
         self._torque_edit = False
 
     def close(self):
         self._apply_mass()
         self._apply_layer()
+        self._apply_color()
         self._apply_motor()
         self._body = None
         self._rect = None
         self._mass_edit = False
         self._layer_edit = False
+        self._r_edit = False
+        self._g_edit = False
+        self._b_edit = False
         self._speed_edit = False
         self._torque_edit = False
         self._min_edit = False
@@ -104,6 +143,29 @@ class ContextMenu:
         self._body.layers = layers
         self._layer_text = ", ".join(sorted(layers))
         self._layer_edit = False
+        
+    def _apply_color(self):
+        if not self._body or self.is_motor: return
+        if not (self._r_edit or self._g_edit or self._b_edit): return
+        
+        r, g, b = self._body.color
+        if self._r_edit:
+            try: r = max(0, min(255, int(self._r_text)))
+            except ValueError: pass
+        if self._g_edit:
+            try: g = max(0, min(255, int(self._g_text)))
+            except ValueError: pass
+        if self._b_edit:
+            try: b = max(0, min(255, int(self._b_text)))
+            except ValueError: pass
+            
+        self._body.color = (r, g, b)
+        self._r_text = f"{r}"
+        self._g_text = f"{g}"
+        self._b_text = f"{b}"
+        self._r_edit = False
+        self._g_edit = False
+        self._b_edit = False
         
     def _apply_motor(self):
         if not self._body or not self.is_motor: return
@@ -142,11 +204,19 @@ class ContextMenu:
             self._max_edit = False
 
     def handle_key(self, ev) -> bool:
-        if self._mass_edit or self._speed_edit or self._torque_edit or self._min_edit or self._max_edit:
-            target_text = self._mass_text if self._mass_edit else (self._speed_text if self._speed_edit else (self._torque_text if self._torque_edit else (self._min_text if self._min_edit else self._max_text)))
+        if self._mass_edit or self._speed_edit or self._torque_edit or self._min_edit or self._max_edit or self._r_edit or self._g_edit or self._b_edit:
+            target_text = self._mass_text if self._mass_edit else \
+                          self._speed_text if self._speed_edit else \
+                          self._torque_text if self._torque_edit else \
+                          self._min_text if self._min_edit else \
+                          self._max_text if self._max_edit else \
+                          self._r_text if self._r_edit else \
+                          self._g_text if self._g_edit else \
+                          self._b_text
             
             if ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                 if self._mass_edit: self._apply_mass()
+                elif self._r_edit or self._g_edit or self._b_edit: self._apply_color()
                 else: self._apply_motor()
             elif ev.key == pygame.K_BACKSPACE:
                 target_text = target_text[:-1]
@@ -160,6 +230,9 @@ class ContextMenu:
             elif self._torque_edit: self._torque_text = target_text
             elif self._min_edit: self._min_text = target_text
             elif self._max_edit: self._max_text = target_text
+            elif self._r_edit: self._r_text = target_text
+            elif self._g_edit: self._g_text = target_text
+            elif self._b_edit: self._b_text = target_text
             return True
         elif self._layer_edit:
             if ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
@@ -171,10 +244,19 @@ class ContextMenu:
             return True
         return False
 
-    def handle_click(self, pos):
+    def handle_click(self, pos, button=1):
         if not self._body or not self._rect:
             return
             
+        if button == 3:
+            if not self.is_motor:
+                for i, r in enumerate(self._preset_boxes()):
+                    if r.collidepoint(pos):
+                        self._apply_color()
+                        self._presets[i] = self._body.color
+                        self._save_presets()
+            return
+
         if self.is_motor:
             if self._speed_box().collidepoint(pos):
                 self._apply_motor()
@@ -202,17 +284,39 @@ class ContextMenu:
         
         if self._mass_box().collidepoint(pos):
             self._apply_layer()
+            self._apply_color()
             self._mass_edit = True
             return
             
         if self._layer_box().collidepoint(pos):
             self._apply_mass()
+            self._apply_color()
             self._layer_edit = True
+            return
+            
+        if self._r_box().collidepoint(pos):
+            self._apply_mass()
+            self._apply_layer()
+            self._apply_color()
+            self._r_edit = True
+            return
+        if self._g_box().collidepoint(pos):
+            self._apply_mass()
+            self._apply_layer()
+            self._apply_color()
+            self._g_edit = True
+            return
+        if self._b_box().collidepoint(pos):
+            self._apply_mass()
+            self._apply_layer()
+            self._apply_color()
+            self._b_edit = True
             return
 
         # If clicked elsewhere in menu, apply edit
         self._apply_mass()
         self._apply_layer()
+        self._apply_color()
 
         if self._fixed_btn().collidepoint(pos):
             self._body.fixed = not self._body.fixed
@@ -226,6 +330,13 @@ class ContextMenu:
         if self._mass_plus().collidepoint(pos):
             self._body.mass = round(self._body.mass + 0.5, 1)
             self._mass_text = f"{self._body.mass:.1f}"
+            
+        for i, r in enumerate(self._preset_boxes()):
+            if r.collidepoint(pos):
+                self._body.color = self._presets[i]
+                self._r_text = f"{self._presets[i][0]}"
+                self._g_text = f"{self._presets[i][1]}"
+                self._b_text = f"{self._presets[i][2]}"
 
     # ── button rects (screen-space) ─────────────────────────────────────────────
 
@@ -249,6 +360,23 @@ class ContextMenu:
 
     def _layer_box(self):
         return pygame.Rect(self._rect.x + 48, self._rect.y + 140, 100, 18)
+        
+    def _r_box(self):
+        return pygame.Rect(self._rect.x + 48, self._rect.y + 174, 30, 18)
+        
+    def _g_box(self):
+        return pygame.Rect(self._rect.x + 83, self._rect.y + 174, 30, 18)
+        
+    def _b_box(self):
+        return pygame.Rect(self._rect.x + 118, self._rect.y + 174, 30, 18)
+        
+    def _preset_boxes(self):
+        boxes = []
+        for i in range(10):
+            row = i // 5
+            col = i % 5
+            boxes.append(pygame.Rect(self._rect.x + self.PAD + col * 30, self._rect.y + 208 + row * 22, 22, 18))
+        return boxes
 
     def _speed_box(self):
         return pygame.Rect(self._rect.x + 52, self._rect.y + 72, 48, 18)
@@ -356,6 +484,43 @@ class ContextMenu:
             
         ts = self._font.render(disp_text, True, Colors.BLACK if self._layer_edit else CM_TEXT_COLOR)
         surface.blit(ts, (lbox.x + 3, lbox.y + 1), area=pygame.Rect(0, 0, lbox.width-6, lbox.height))
+
+        # Color Label
+        surface.blit(self._font.render("Color:", True, CM_TEXT_COLOR),
+                     (r.x + self.PAD, r.y + 175))
+
+        # R Box
+        rbox = self._r_box()
+        pygame.draw.rect(surface, Colors.WHITE if self._r_edit else CM_BTN_BG, rbox, border_radius=2)
+        pygame.draw.rect(surface, CM_ACCENT if self._r_edit else CM_BORDER, rbox, 1, border_radius=2)
+        disp_text = self._r_text if self._r_edit else f"{self._body.color[0]}"
+        if self._r_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
+        ts = self._font.render(disp_text, True, Colors.BLACK if self._r_edit else CM_TEXT_COLOR)
+        surface.blit(ts, (rbox.x + 3, rbox.y + 1), area=pygame.Rect(0, 0, rbox.width-6, rbox.height))
+
+        # G Box
+        gbox = self._g_box()
+        pygame.draw.rect(surface, Colors.WHITE if self._g_edit else CM_BTN_BG, gbox, border_radius=2)
+        pygame.draw.rect(surface, CM_ACCENT if self._g_edit else CM_BORDER, gbox, 1, border_radius=2)
+        disp_text = self._g_text if self._g_edit else f"{self._body.color[1]}"
+        if self._g_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
+        ts = self._font.render(disp_text, True, Colors.BLACK if self._g_edit else CM_TEXT_COLOR)
+        surface.blit(ts, (gbox.x + 3, gbox.y + 1), area=pygame.Rect(0, 0, gbox.width-6, gbox.height))
+
+        # B Box
+        bbox = self._b_box()
+        pygame.draw.rect(surface, Colors.WHITE if self._b_edit else CM_BTN_BG, bbox, border_radius=2)
+        pygame.draw.rect(surface, CM_ACCENT if self._b_edit else CM_BORDER, bbox, 1, border_radius=2)
+        disp_text = self._b_text if self._b_edit else f"{self._body.color[2]}"
+        if self._b_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
+        ts = self._font.render(disp_text, True, Colors.BLACK if self._b_edit else CM_TEXT_COLOR)
+        surface.blit(ts, (bbox.x + 3, bbox.y + 1), area=pygame.Rect(0, 0, bbox.width-6, bbox.height))
+
+        # Presets
+        for i, pr in enumerate(self._preset_boxes()):
+            hov = pr.collidepoint(mouse_pos)
+            pygame.draw.rect(surface, self._presets[i], pr, border_radius=2)
+            pygame.draw.rect(surface, CM_ACCENT if hov else CM_BORDER, pr, 1, border_radius=2)
 
     def _draw_motor(self, surface: pygame.Surface, mouse_pos):
         import math

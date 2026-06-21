@@ -13,6 +13,8 @@ class DrawingTool:
     def __init__(self):
         self.mode: str | None = None
         self._points: list[tuple] = []   # world-space clicks
+        pygame.font.init()
+        self.font = pygame.font.SysFont("segoeui", 12)
 
     def set_mode(self, mode):
         self.mode = mode;  self._points = []
@@ -58,6 +60,11 @@ class DrawingTool:
         surface.blit(g, (int(x),int(y)))
         pygame.draw.rect(surface, self.OUTLINE_COLOR, (int(x),int(y),int(w),int(h)), 2)
 
+        world_w = abs(wm[0] - self._points[0][0])
+        world_h = abs(wm[1] - self._points[0][1])
+        ts = self.font.render(f"{world_w:.1f} x {world_h:.1f}", True, Colors.WHITE)
+        surface.blit(ts, (int(x + w/2 - ts.get_width()/2), int(y + h + 4)))
+
     # ── circle ──────────────────────────────────────────────────────────────────
 
     def _do_circle(self, pos, cb):
@@ -81,6 +88,10 @@ class DrawingTool:
         surface.blit(g, (int(sc[0])-r, int(sc[1])-r))
         pygame.draw.circle(surface, self.OUTLINE_COLOR, (int(sc[0]),int(sc[1])), r, 2)
         pygame.draw.line(surface, self.OUTLINE_COLOR, (int(sc[0]),int(sc[1])), (int(sm[0]),int(sm[1])), 1)
+
+        world_r = math.hypot(wm[0] - self._points[0][0], wm[1] - self._points[0][1])
+        ts = self.font.render(f"r: {world_r:.1f}", True, Colors.WHITE)
+        surface.blit(ts, (int(sc[0] + (sm[0]-sc[0])/2), int(sc[1] + (sm[1]-sc[1])/2)))
 
     # ── polygon ─────────────────────────────────────────────────────────────────
 
@@ -117,6 +128,13 @@ class DrawingTool:
                                (int(cam.w2s(*self._points[0])[0]),
                                 int(cam.w2s(*self._points[0])[1])),
                                ring_r, 2)
+            
+            # Show length of current edge
+            world_dist = math.hypot(wm[0] - self._points[-1][0], wm[1] - self._points[-1][1])
+            ts = self.font.render(f"{world_dist:.1f}", True, Colors.WHITE)
+            sm = cam.w2s(*wm)
+            slast = cam.w2s(*self._points[-1])
+            surface.blit(ts, (int(slast[0] + (sm[0]-slast[0])/2), int(slast[1] + (sm[1]-slast[1])/2)))
 
     # ── motor ───────────────────────────────────────────────────────────────────
 

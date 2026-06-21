@@ -6,6 +6,17 @@ from config import *
 def _rot(lx, ly, ca, sa, ox, oy):
     return ox + lx*ca - ly*sa, oy + lx*sa + ly*ca
 
+def _draw_ghost_poly(surface, pts):
+    min_x = min(p[0] for p in pts); max_x = max(p[0] for p in pts)
+    min_y = min(p[1] for p in pts); max_y = max(p[1] for p in pts)
+    w = max_x - min_x; h = max_y - min_y
+    if w > 0 and h > 0:
+        g = pygame.Surface((int(w), int(h)), pygame.SRCALPHA)
+        local_pts = [(p[0] - min_x, p[1] - min_y) for p in pts]
+        pygame.draw.polygon(g, (80, 180, 255, 40), local_pts)
+        surface.blit(g, (int(min_x), int(min_y)))
+    pygame.draw.polygon(surface, Colors.WHITE, pts, 2)
+
 
 class Body:
     def __init__(self, x, y, mass=1.0, restitution=0.5):
@@ -17,6 +28,7 @@ class Body:
         self.angular_velocity = 0.0
         self.fixed = False
         self.layers = {"Default"}
+        self.color = BODY_COLOR
         self._snap()
 
     def _snap(self):
@@ -49,7 +61,13 @@ class Body:
     def project(self, ax, ay):    raise NotImplementedError
     def hit_test(self, px, py):   raise NotImplementedError
 
-    def draw(self, surface, cam):         raise NotImplementedError
+    def get_handles(self):
+        return []
+
+    def resize(self, handle_id, wp_x, wp_y):
+        pass
+
+    def draw(self, surface, cam, ghost=False):         raise NotImplementedError
     def draw_outline(self, surface, cam, color, width=2): raise NotImplementedError
 
     def to_dict(self):
@@ -61,6 +79,7 @@ class Body:
             "mass": self.mass, "restitution": self.restitution,
             "fixed": self.fixed,
             "layers": list(self.layers),
+            "color": list(self.color),
             "_init": self._init
         }
 
@@ -71,6 +90,7 @@ class Body:
         self.angular_velocity = d.get("angular_velocity", 0.0)
         self.fixed = d.get("fixed", False)
         self.layers = set(d.get("layers", ["Default"]))
+        self.color = tuple(d.get("color", BODY_COLOR))
         self._init = d.get("_init", dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=0.0, av=0.0))
 
     @staticmethod
@@ -130,9 +150,13 @@ class RectBody(Body):
         return [(int(x),int(y)) for x,y in
                 [cam.w2s(vx,vy) for vx,vy in self.get_vertices()]]
 
-    def draw(self, surface, cam):
-        col = BODY_FIXED_COLOR if self.fixed else BODY_COLOR
+    def draw(self, surface, cam, ghost=False):
         pts = self._screen_pts(cam)
+        if ghost:
+            _draw_ghost_poly(surface, pts)
+            return
+            
+        col = tuple(min(255, max(0, int(c * 0.7))) for c in self.color) if self.fixed else self.color
         pygame.draw.polygon(surface, col, pts)
         pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
         # Centre-of-mass dot
@@ -141,6 +165,20 @@ class RectBody(Body):
 
     def draw_outline(self, surface, cam, color, width=2):
         pygame.draw.polygon(surface, color, self._screen_pts(cam), width)
+
+    def get_handles(self):
+        return self.get_vertices()
+
+    def resize(self, handle_id, wp_x, wp_y):
+        v = self.get_vertices()
+        fixed = v[(handle_id + 2) % 4]
+        self.x = (fixed[0] + wp_x) / 2.0
+        self.y = (fixed[1] + wp_y) / 2.0
+        dx = wp_x - fixed[0]
+        dy = wp_y - fixed[1]
+        ca, sa = math.cos(-self.angle), math.sin(-self.angle)
+        self.width = max(1.0, abs(dx * ca - dy * sa))
+        self.height = max(1.0, abs(dx * sa + dy * ca))
 
 
 class CircleBody(Body):
@@ -163,10 +201,18 @@ class CircleBody(Body):
     def hit_test(self, px, py):
         return math.hypot(px-self.x, py-self.y) <= self.radius
 
-    def draw(self, surface, cam):
-        col = BODY_FIXED_COLOR if self.fixed else BODY_COLOR
+    def draw(self, surface, cam, ghost=False):
         sx, sy = cam.w2s(self.x, self.y)
         r = max(1, int(self.radius * cam.zoom))
+        
+        if ghost:
+            g = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+            pygame.draw.circle(g, (80, 180, 255, 40), (r, r), r)
+            surface.blit(g, (int(sx)-r, int(sy)-r))
+            pygame.draw.circle(surface, Colors.WHITE, (int(sx), int(sy)), r, 2)
+            return
+
+        col = tuple(min(255, max(0, int(c * 0.7))) for c in self.color) if self.fixed else self.color
         lw = max(1, int(cam.zoom))
         pygame.draw.circle(surface, col, (int(sx), int(sy)), r)
         pygame.draw.circle(surface, Colors.BLACK, (int(sx), int(sy)), r, lw)
@@ -178,6 +224,14 @@ class CircleBody(Body):
         sx, sy = cam.w2s(self.x, self.y)
         r = max(1, int(self.radius * cam.zoom))
         pygame.draw.circle(surface, color, (int(sx), int(sy)), r + width, width)
+
+    def get_handles(self):
+        hx = self.x + self.radius * math.cos(self.angle)
+        hy = self.y + self.radius * math.sin(self.angle)
+        return [(hx, hy)]
+
+    def resize(self, handle_id, wp_x, wp_y):
+        self.radius = max(1.0, math.hypot(wp_x - self.x, wp_y - self.y))
 
 
 class PolygonBody(Body):
@@ -244,9 +298,13 @@ class PolygonBody(Body):
         return [(int(x),int(y)) for x,y in
                 [cam.w2s(vx,vy) for vx,vy in self.get_vertices()]]
 
-    def draw(self, surface, cam):
-        col = BODY_FIXED_COLOR if self.fixed else BODY_COLOR
+    def draw(self, surface, cam, ghost=False):
         pts = self._screen_pts(cam)
+        if ghost:
+            _draw_ghost_poly(surface, pts)
+            return
+
+        col = tuple(min(255, max(0, int(c * 0.7))) for c in self.color) if self.fixed else self.color
         pygame.draw.polygon(surface, col, pts)
         pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
         # Centre-of-mass dot
@@ -255,3 +313,23 @@ class PolygonBody(Body):
 
     def draw_outline(self, surface, cam, color, width=2):
         pygame.draw.polygon(surface, color, self._screen_pts(cam), width)
+
+    def get_handles(self):
+        return self.get_vertices()
+
+    def resize(self, handle_id, wp_x, wp_y):
+        dx = wp_x - self.x
+        dy = wp_y - self.y
+        ca, sa = math.cos(-self.angle), math.sin(-self.angle)
+        lx = dx * ca - dy * sa
+        ly = dx * sa + dy * ca
+        self.local_points[handle_id] = (lx, ly)
+
+    def recenter(self):
+        cx_local, cy_local = self._centroid(self.local_points)
+        ca, sa = math.cos(self.angle), math.sin(self.angle)
+        shift_x = cx_local * ca - cy_local * sa
+        shift_y = cx_local * sa + cy_local * ca
+        self.x += shift_x
+        self.y += shift_y
+        self.local_points = [(p[0] - cx_local, p[1] - cy_local) for p in self.local_points]

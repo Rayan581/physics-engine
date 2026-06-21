@@ -18,7 +18,7 @@ class Colors:
 # ── Physics ─────────────────────────────────────────────────────────────────────
 GRAVITY               = 500.0  # px / s²
 PHYSICS_SUBSTEPS      = 8      # sub-steps per frame (higher = stabler collisions)
-DRAW_COLLISION_POINTS = True   # toggle visualization of collision contacts
+DRAW_COLLISION_POINTS = False   # toggle visualization of collision contacts
 
 # ── Body visuals ────────────────────────────────────────────────────────────────
 BODY_COLOR       = (200, 200, 220)
