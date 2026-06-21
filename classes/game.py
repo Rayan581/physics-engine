@@ -31,6 +31,7 @@ class Game:
         self.joints:    list[MotorJoint] = []
         self.selected:  set[Body]  = set()
         self.sim_state = STOPPED
+        self.show_grid = True
 
         self.camera  = Camera(WIDTH, HEIGHT)
         self.drawing = DrawingTool()
@@ -61,6 +62,23 @@ class Game:
 
     def _world_pos(self, screen_pos):
         return self.camera.s2w(*self._canvas_pos(screen_pos))
+
+    def _get_grid_spacing(self):
+        import math
+        target_world = 100.0 / self.camera.zoom
+        magnitude = 10 ** math.floor(math.log10(target_world))
+        norm = target_world / magnitude
+        if norm < 2: return magnitude
+        elif norm < 5: return 2 * magnitude
+        else: return 5 * magnitude
+
+    def _get_snapped_wp(self, cp):
+        wp = list(self.camera.s2w(*cp))
+        if getattr(self, 'show_grid', False):
+            spacing = self._get_grid_spacing()
+            wp[0] = round(wp[0] / spacing) * spacing
+            wp[1] = round(wp[1] / spacing) * spacing
+        return tuple(wp)
 
     def _body_at_world(self, wx, wy):
         for b in reversed(self.bodies):
@@ -248,6 +266,8 @@ class Game:
         elif k == pygame.K_s: self._stop()
         elif k == pygame.K_r and self.sim_state == STOPPED:
             self.drawing.set_mode(None if self.drawing.mode=='rect'    else 'rect')
+        elif k == pygame.K_g:
+            self.show_grid = not self.show_grid
         elif k == pygame.K_c and self.sim_state == STOPPED:
             self.drawing.set_mode(None if self.drawing.mode=='circle'  else 'circle')
         elif k == pygame.K_p and self.sim_state == STOPPED:
@@ -298,16 +318,17 @@ class Game:
             return
 
         cp = self._canvas_pos(pos)
-        wp = self.camera.s2w(*cp)
+        raw_wp = self.camera.s2w(*cp)
+        snap_wp = self._get_snapped_wp(cp)
 
         # Drawing tool takes priority
         if self.drawing.mode and self.sim_state == STOPPED:
-            self.drawing.handle_click(wp, self.bodies.append, self.bodies, self.joints.append)
+            self.drawing.handle_click(snap_wp, self.bodies.append, self.bodies, self.joints.append)
             return
 
         # Begin left-drag tracking
         self._ld_down_s = cp
-        self._ld_down_w = wp
+        self._ld_down_w = raw_wp
         self._ld_mode   = None   # resolved in _motion or _lmb_up
         
         # Check resize handles first
@@ -321,7 +342,7 @@ class Game:
                         self._resize_handle = i
                         return
 
-        hit = self._body_at_world(*wp)
+        hit = self._body_at_world(*raw_wp)
         if hit:
             if hit not in self.selected:
                 mods = pygame.key.get_mods()
@@ -329,18 +350,18 @@ class Game:
                     self.selected.clear()
                 self.selected.add(hit)
             # Prepare for possible move
-            self._move_off = {b: (b.x - wp[0], b.y - wp[1]) for b in self.selected}
+            self._move_off = {b: (b.x - snap_wp[0], b.y - snap_wp[1]) for b in self.selected}
             self._ld_mode = 'move'
         else:
             self._ld_mode = 'band'
-            self._band_end_w = wp
+            self._band_end_w = raw_wp
 
     def _lmb_up(self, pos):
         cp = self._canvas_pos(pos)
-        wp = self.camera.s2w(*cp)
+        raw_wp = self.camera.s2w(*cp)
 
         if self._ld_mode == 'band':
-            self._band_end_w = wp
+            self._band_end_w = raw_wp
             new_sel = self._bodies_in_band()
             mods = pygame.key.get_mods()
             if not (mods & pygame.KMOD_SHIFT):
@@ -352,7 +373,7 @@ class Game:
             if self._ld_down_s:
                 dx = cp[0] - self._ld_down_s[0];  dy = cp[1] - self._ld_down_s[1]
                 if dx*dx + dy*dy < DRAG_DIST**2:
-                    hit = self._body_at_world(*wp)
+                    hit = self._body_at_world(*raw_wp)
                     if hit:
                         mods = pygame.key.get_mods()
                         if not (mods & pygame.KMOD_SHIFT):
@@ -420,7 +441,8 @@ class Game:
 
     def _motion(self, pos):
         cp = self._canvas_pos(pos)
-        wp = self.camera.s2w(*cp)
+        raw_wp = self.camera.s2w(*cp)
+        snap_wp = self._get_snapped_wp(cp)
 
         # Right: pan or rotate
         if self._rd_down_s is not None:
@@ -431,7 +453,7 @@ class Game:
                     self.camera.pan(dx, dy)
                 elif getattr(self, '_rd_mode', None) == 'rotate':
                     import math
-                    ma = math.atan2(wp[1] - self._rotate_body.y, wp[0] - self._rotate_body.x)
+                    ma = math.atan2(raw_wp[1] - self._rotate_body.y, raw_wp[0] - self._rotate_body.x)
                     da = ma - self._rotate_start_mouse_a
                     self._rotate_body.angle = self._rotate_start_angle + da
             self._rd_last_s = cp
@@ -442,19 +464,46 @@ class Game:
                 ddx = cp[0]-self._ld_down_s[0]; ddy = cp[1]-self._ld_down_s[1]
                 if ddx*ddx+ddy*ddy >= DRAG_DIST**2:
                     for b, (ox,oy) in self._move_off.items():
-                        b.x = wp[0]+ox;  b.y = wp[1]+oy
+                        b.x = snap_wp[0]+ox;  b.y = snap_wp[1]+oy
         elif self._ld_mode == 'band':
-            self._band_end_w = wp
+            self._band_end_w = raw_wp
         elif self._ld_mode == 'resize':
             if self._ld_down_s:
                 ddx = cp[0]-self._ld_down_s[0]; ddy = cp[1]-self._ld_down_s[1]
                 if ddx*ddx+ddy*ddy >= DRAG_DIST**2:
-                    self._resize_body.resize(self._resize_handle, wp[0], wp[1])
+                    self._resize_body.resize(self._resize_handle, snap_wp[0], snap_wp[1])
 
     # ── draw ────────────────────────────────────────────────────────────────────
 
+    def _draw_grid(self, cam):
+        import math
+        world_spacing = self._get_grid_spacing()
+        
+        left_w, top_w = cam.s2w(0, 0)
+        right_w, bottom_w = cam.s2w(cam.view_w, cam.view_h)
+        
+        start_x = math.floor(left_w / world_spacing) * world_spacing
+        start_y = math.floor(top_w / world_spacing) * world_spacing
+        
+        # Draw vertical lines
+        x = start_x
+        while x <= right_w:
+            sx, _ = cam.w2s(x, 0)
+            pygame.draw.line(self.canvas, (45, 45, 55), (int(sx), 0), (int(sx), cam.view_h))
+            x += world_spacing
+            
+        # Draw horizontal lines
+        y = start_y
+        while y <= bottom_w:
+            _, sy = cam.w2s(0, y)
+            pygame.draw.line(self.canvas, (45, 45, 55), (0, int(sy)), (cam.view_w, int(sy)))
+            y += world_spacing
+
     def _draw(self):
         cam = self.camera
+        
+        if self.show_grid:
+            self._draw_grid(cam)
 
         # Bodies
         for b in self.bodies:
@@ -565,7 +614,7 @@ class Game:
         # Ghost preview
         if self.sim_state == STOPPED and self.drawing.mode:
             mp = pygame.mouse.get_pos()
-            wm = cam.s2w(*self._canvas_pos(mp))
+            wm = self._get_snapped_wp(self._canvas_pos(mp))
             self.drawing.draw_preview(self.canvas, cam, wm)
 
         # Toolbox + context menu (on full screen)
