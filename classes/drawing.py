@@ -27,6 +27,7 @@ class DrawingTool:
         if self.mode == 'circle':  return self._do_circle(world_pos, add_body_cb)
         if self.mode == 'polygon': return self._do_polygon(world_pos, add_body_cb, cam)
         if self.mode == 'motor':   return self._do_motor(world_pos, bodies, add_joint_cb)
+        if self.mode == 'text':    return self._do_text(world_pos, add_body_cb)
         return False
 
     def draw_preview(self, surface, cam, world_mouse):
@@ -34,6 +35,7 @@ class DrawingTool:
         elif self.mode == 'circle':  self._prev_circle(surface, cam, world_mouse)
         elif self.mode == 'polygon': self._prev_polygon(surface, cam, world_mouse)
         elif self.mode == 'motor':   self._prev_motor(surface, cam, world_mouse)
+        elif self.mode == 'text':    self._prev_text(surface, cam, world_mouse)
 
     # ── rect ────────────────────────────────────────────────────────────────────
 
@@ -59,11 +61,26 @@ class DrawingTool:
         g.fill((*self.GHOST_COLOR, 40))
         surface.blit(g, (int(x),int(y)))
         pygame.draw.rect(surface, self.OUTLINE_COLOR, (int(x),int(y),int(w),int(h)), 2)
-
+        
         world_w = abs(wm[0] - self._points[0][0])
         world_h = abs(wm[1] - self._points[0][1])
         ts = self.font.render(f"{world_w:.1f} x {world_h:.1f}", True, Colors.WHITE)
         surface.blit(ts, (int(x + w/2 - ts.get_width()/2), int(y + h + 4)))
+
+    # ── text ────────────────────────────────────────────────────────────────────
+
+    def _do_text(self, pos, cb):
+        from classes.body import TextBody
+        cb(TextBody(pos[0], pos[1], "Text"))
+        self._points = []
+        return True
+
+    def _prev_text(self, surface, cam, wm):
+        sm = cam.w2s(*wm)
+        # Just draw a little ghost crosshair or T to show text will be placed here
+        x, y = int(sm[0]), int(sm[1])
+        pygame.draw.line(surface, self.OUTLINE_COLOR, (x - 8, y - 10), (x + 8, y - 10), 2)
+        pygame.draw.line(surface, self.OUTLINE_COLOR, (x, y - 10), (x, y + 10), 2)
 
     # ── circle ──────────────────────────────────────────────────────────────────
 

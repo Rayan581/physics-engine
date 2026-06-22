@@ -102,6 +102,10 @@ class Body:
             b = CircleBody(d["x"], d["y"], d["radius"], d["mass"], d["restitution"])
         elif typ == "PolygonBody":
             b = PolygonBody(d["points"], d["mass"], d["restitution"])
+        elif typ == "TextBody":
+            b = TextBody(d["x"], d["y"], d.get("text", "Text"), d.get("mass", 1.0), d.get("restitution", 0.5))
+            b.width = d["width"]
+            b.height = d["height"]
         else:
             return None
         b._load_base_dict(d)
@@ -156,7 +160,7 @@ class RectBody(Body):
             _draw_ghost_poly(surface, pts)
             return
             
-        col = tuple(min(255, max(0, int(c * 0.7))) for c in self.color) if self.fixed else self.color
+        col = self.color
         pygame.draw.polygon(surface, col, pts)
         pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
         # Centre-of-mass dot
@@ -212,7 +216,7 @@ class CircleBody(Body):
             pygame.draw.circle(surface, Colors.WHITE, (int(sx), int(sy)), r, 2)
             return
 
-        col = tuple(min(255, max(0, int(c * 0.7))) for c in self.color) if self.fixed else self.color
+        col = self.color
         lw = max(1, int(cam.zoom))
         pygame.draw.circle(surface, col, (int(sx), int(sy)), r)
         pygame.draw.circle(surface, Colors.BLACK, (int(sx), int(sy)), r, lw)
@@ -242,9 +246,6 @@ class PolygonBody(Body):
 
     def to_dict(self):
         d = super().to_dict()
-        # Restore absolute points for saving (though they will be offset from 0,0 since we pass them to constructor)
-        # Actually, PolygonBody expects absolute points, but our constructor centers them.
-        # If we just pass `self.local_points` shifted by `self.x, self.y`, it will reconstruct correctly.
         d["points"] = [[px + self.x, py + self.y] for px, py in self.local_points]
         return d
 
@@ -304,7 +305,7 @@ class PolygonBody(Body):
             _draw_ghost_poly(surface, pts)
             return
 
-        col = tuple(min(255, max(0, int(c * 0.7))) for c in self.color) if self.fixed else self.color
+        col = self.color
         pygame.draw.polygon(surface, col, pts)
         pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
         # Centre-of-mass dot
@@ -333,3 +334,79 @@ class PolygonBody(Body):
         self.x += shift_x
         self.y += shift_y
         self.local_points = [(p[0] - cx_local, p[1] - cy_local) for p in self.local_points]
+
+class TextBody(RectBody):
+    def __init__(self, x, y, text="Text", mass=1.0, restitution=0.5):
+        self.text = text
+        self.font_size = 48
+        self._cached_surf = None
+        self._cached_text = None
+        self._cached_color = None
+        
+        w, h = self._render_and_get_size()
+        super().__init__(x, y, w, h, mass, restitution)
+        self.fixed = False
+
+    def _render_and_get_size(self):
+        if not hasattr(TextBody, '_font'):
+            TextBody._font = pygame.font.SysFont("segoeui", self.font_size, bold=True)
+            
+        lines = self.text.split('\n')
+        renders = [TextBody._font.render(line, True, Colors.WHITE) for line in lines]
+        w = max((r.get_width() for r in renders), default=1)
+        h = sum(r.get_height() for r in renders) or 1
+        return max(10, w), max(10, h)
+
+    def update_text(self, new_text):
+        old_w, old_h = self._render_and_get_size()
+        self.text = new_text
+        new_w, new_h = self._render_and_get_size()
+        
+        scale_x = self.width / old_w if old_w else 1.0
+        scale_y = self.height / old_h if old_h else 1.0
+        
+        self.width = max(2, new_w * scale_x)
+        self.height = max(2, new_h * scale_y)
+        
+        self._cached_surf = None
+
+    def draw(self, surface, cam, ghost=False):
+        if ghost:
+            super().draw(surface, cam, ghost=True)
+            return
+            
+        col = self.color
+        
+        if self._cached_text != self.text or self._cached_color != col or not self._cached_surf:
+            self._cached_text = self.text
+            self._cached_color = col
+            
+            if not hasattr(TextBody, '_font'):
+                TextBody._font = pygame.font.SysFont("segoeui", self.font_size, bold=True)
+                
+            lines = self.text.split('\n')
+            renders = [TextBody._font.render(line, True, col) for line in lines]
+            base_w = max((r.get_width() for r in renders), default=1)
+            base_h = sum(r.get_height() for r in renders) or 1
+            
+            self._cached_surf = pygame.Surface((max(1, base_w), max(1, base_h)), pygame.SRCALPHA)
+            cy = 0
+            for r in renders:
+                cx = (base_w - r.get_width()) // 2
+                self._cached_surf.blit(r, (cx, cy))
+                cy += r.get_height()
+                
+        target_w = max(1, int(self.width * cam.zoom))
+        target_h = max(1, int(self.height * cam.zoom))
+        
+        scaled = pygame.transform.smoothscale(self._cached_surf, (target_w, target_h))
+        rotated = pygame.transform.rotate(scaled, math.degrees(-self.angle))
+        
+        sx, sy = cam.w2s(self.x, self.y)
+        r_rect = rotated.get_rect(center=(int(sx), int(sy)))
+        surface.blit(rotated, r_rect)
+
+    def to_dict(self):
+        d = super().to_dict()
+        d["text"] = self.text
+        return d

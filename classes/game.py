@@ -274,6 +274,8 @@ class Game:
             self.drawing.set_mode(None if self.drawing.mode=='polygon' else 'polygon')
         elif k == pygame.K_m and self.sim_state == STOPPED:
             self.drawing.set_mode(None if self.drawing.mode=='motor' else 'motor')
+        elif k == pygame.K_t and self.sim_state == STOPPED:
+            self.drawing.set_mode(None if self.drawing.mode=='text' else 'text')
         elif k in (pygame.K_DELETE, pygame.K_BACKSPACE) and self.sim_state == STOPPED:
             if self.ctx_menu.is_open and self.ctx_menu.is_motor:
                 # Delete the specific motor currently being edited

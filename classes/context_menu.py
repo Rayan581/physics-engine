@@ -20,6 +20,9 @@ class ContextMenu:
         self._layer_text = ""
         self._layer_edit = False
         
+        self._text_text = ""
+        self._text_edit = False
+        
         self._r_text = ""
         self._g_text = ""
         self._b_text = ""
@@ -88,16 +91,19 @@ class ContextMenu:
             self._min_text = f"{math.degrees(body.min_angle):.0f}"
             self._max_text = f"{math.degrees(body.max_angle):.0f}"
         else:
-            self.H = 260
+            self.H = 310 if type(body).__name__ == "TextBody" else 260
             self._mass_text = f"{body.mass:.1f}"
             self._layer_text = ", ".join(sorted(body.layers))
             self._r_text = f"{body.color[0]}"
             self._g_text = f"{body.color[1]}"
             self._b_text = f"{body.color[2]}"
+            if type(body).__name__ == "TextBody":
+                self._text_text = body.text
             
         self._rect = pygame.Rect(mx, my, self.W, self.H)
         self._mass_edit = False
         self._layer_edit = False
+        self._text_edit = False
         self._r_edit = False
         self._g_edit = False
         self._b_edit = False
@@ -109,10 +115,12 @@ class ContextMenu:
         self._apply_layer()
         self._apply_color()
         self._apply_motor()
+        self._apply_text()
         self._body = None
         self._rect = None
         self._mass_edit = False
         self._layer_edit = False
+        self._text_edit = False
         self._r_edit = False
         self._g_edit = False
         self._b_edit = False
@@ -166,6 +174,11 @@ class ContextMenu:
         self._r_edit = False
         self._g_edit = False
         self._b_edit = False
+
+    def _apply_text(self):
+        if not self._body or not self._text_edit or type(self._body).__name__ != "TextBody": return
+        self._body.update_text(self._text_text)
+        self._text_edit = False
         
     def _apply_motor(self):
         if not self._body or not self.is_motor: return
@@ -242,6 +255,16 @@ class ContextMenu:
             elif ev.unicode and ev.unicode.isprintable():
                 self._layer_text += ev.unicode
             return True
+        elif self._text_edit:
+            if ev.key == pygame.K_ESCAPE:
+                self._apply_text()
+            elif ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self._text_text += '\n'
+            elif ev.key == pygame.K_BACKSPACE:
+                self._text_text = self._text_text[:-1]
+            elif ev.unicode and ev.unicode.isprintable():
+                self._text_text += ev.unicode
+            return True
         return False
 
     def handle_click(self, pos, button=1):
@@ -313,10 +336,18 @@ class ContextMenu:
             self._b_edit = True
             return
 
+        if self._text_box() and self._text_box().collidepoint(pos):
+            self._apply_mass()
+            self._apply_layer()
+            self._apply_color()
+            self._text_edit = True
+            return
+
         # If clicked elsewhere in menu, apply edit
         self._apply_mass()
         self._apply_layer()
         self._apply_color()
+        self._apply_text()
 
         if self._fixed_btn().collidepoint(pos):
             self._body.fixed = not self._body.fixed
@@ -392,6 +423,11 @@ class ContextMenu:
 
     def _max_box(self):
         return pygame.Rect(self._rect.x + 110, self._rect.y + 174, 44, 18)
+
+    def _text_box(self):
+        if type(self._body).__name__ == "TextBody":
+            return pygame.Rect(self._rect.x + self.PAD, self._rect.y + 252, self.W - self.PAD*2, 44)
+        return None
 
     # ── draw ────────────────────────────────────────────────────────────────────
 
@@ -517,10 +553,31 @@ class ContextMenu:
         surface.blit(ts, (bbox.x + 3, bbox.y + 1), area=pygame.Rect(0, 0, bbox.width-6, bbox.height))
 
         # Presets
-        for i, pr in enumerate(self._preset_boxes()):
-            hov = pr.collidepoint(mouse_pos)
-            pygame.draw.rect(surface, self._presets[i], pr, border_radius=2)
-            pygame.draw.rect(surface, CM_ACCENT if hov else CM_BORDER, pr, 1, border_radius=2)
+        y = 208
+        boxes = self._preset_boxes()
+        for i, r_box in enumerate(boxes):
+            c = self._presets[i]
+            pygame.draw.rect(surface, c, r_box, border_radius=2)
+            pygame.draw.rect(surface, CM_BORDER, r_box, 1, border_radius=2)
+
+        # Text input box
+        if type(self._body).__name__ == "TextBody":
+            surface.blit(self._font.render("Text:", True, CM_TEXT_COLOR),
+                         (r.x + self.PAD, r.y + 236))
+            t_box = self._text_box()
+            pygame.draw.rect(surface, Colors.WHITE if self._text_edit else CM_BTN_BG, t_box, border_radius=2)
+            pygame.draw.rect(surface, CM_ACCENT if self._text_edit else CM_BORDER, t_box, 1, border_radius=2)
+            
+            disp_text = self._text_text if self._text_edit else self._body.text
+            if self._text_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
+            
+            # Simple multiline render for textbox
+            lines = disp_text.split('\n')
+            ty = t_box.y + 2
+            for line in lines:
+                ts = self._font.render(line, True, Colors.BLACK if self._text_edit else CM_TEXT_COLOR)
+                surface.blit(ts, (t_box.x + 3, ty), area=pygame.Rect(0, 0, t_box.width-6, ts.get_height()))
+                ty += ts.get_height()
 
     def _draw_motor(self, surface: pygame.Surface, mouse_pos):
         import math

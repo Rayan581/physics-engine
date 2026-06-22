@@ -29,6 +29,10 @@ def _icon_motor(surf, cx, cy, active):
     pygame.draw.line(surf, col, (cx, cy-10), (cx, cy+10), 2)
     pygame.draw.line(surf, col, (cx-10, cy), (cx+10, cy), 2)
 
+def _icon_text(surf, cx, cy, active):
+    col = TB_ICON_ACTIVE if active else TB_ICON_COLOR
+    pygame.draw.line(surf, col, (cx - 8, cy - 10), (cx + 8, cy - 10), 3)
+    pygame.draw.line(surf, col, (cx, cy - 10), (cx, cy + 10), 3)
 
 # ── ToolButton ───────────────────────────────────────────────────────────────────
 
@@ -135,6 +139,7 @@ class Toolbox:
         'circle':  ["Click center,",   "then radius pt"],
         'polygon': ["Click vertices,", "close near start"],
         'motor':   ["Click object", "to attach motor"],
+        'text':    ["Click anywhere", "to spawn text"],
     }
 
     def __init__(self, x, y, width, height):
@@ -155,6 +160,7 @@ class Toolbox:
             ("circle",  "Circle", _icon_circle,  "C"),
             ("polygon", "Poly",   _icon_polygon, "P"),
             ("motor",   "Motor",  _icon_motor,   "M"),
+            ("text",    "Text",   _icon_text,    "T"),
         ]
         y = self.rect.y + 38
         for name, label, fn, key in tools:
