@@ -323,7 +323,7 @@ class Game:
 
         # Drawing tool takes priority
         if self.drawing.mode and self.sim_state == STOPPED:
-            self.drawing.handle_click(snap_wp, self.bodies.append, self.bodies, self.joints.append)
+            self.drawing.handle_click(snap_wp, self.bodies.append, self.bodies, self.joints.append, cam=self.camera)
             return
 
         # Begin left-drag tracking

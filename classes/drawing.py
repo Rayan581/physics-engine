@@ -22,10 +22,10 @@ class DrawingTool:
     def cancel(self):
         self.mode = None;  self._points = []
 
-    def handle_click(self, world_pos, add_body_cb, bodies=None, add_joint_cb=None):
+    def handle_click(self, world_pos, add_body_cb, bodies=None, add_joint_cb=None, cam=None):
         if self.mode == 'rect':    return self._do_rect(world_pos, add_body_cb)
         if self.mode == 'circle':  return self._do_circle(world_pos, add_body_cb)
-        if self.mode == 'polygon': return self._do_polygon(world_pos, add_body_cb)
+        if self.mode == 'polygon': return self._do_polygon(world_pos, add_body_cb, cam)
         if self.mode == 'motor':   return self._do_motor(world_pos, bodies, add_joint_cb)
         return False
 
@@ -95,13 +95,14 @@ class DrawingTool:
 
     # ── polygon ─────────────────────────────────────────────────────────────────
 
-    def _near_first(self, wpos):
+    def _near_first(self, wpos, cam):
         if not self._points: return False
+        threshold = POLYGON_CLOSE_RADIUS / cam.zoom if cam else POLYGON_CLOSE_RADIUS
         return math.hypot(wpos[0]-self._points[0][0],
-                          wpos[1]-self._points[0][1]) <= POLYGON_CLOSE_RADIUS
+                          wpos[1]-self._points[0][1]) <= threshold
 
-    def _do_polygon(self, pos, cb):
-        if len(self._points) >= 3 and self._near_first(pos):
+    def _do_polygon(self, pos, cb, cam):
+        if len(self._points) >= 3 and self._near_first(pos, cam):
             from classes.body import PolygonBody
             cb(PolygonBody(list(self._points)))
             self._points = [];  return True
@@ -120,9 +121,9 @@ class DrawingTool:
         if len(self._points) >= 2:
             pygame.draw.line(surface, self.OUTLINE_COLOR, all_s[-1], all_s[0], 1)
         if self._points:
-            near = self._near_first(wm)
+            near = self._near_first(wm, cam)
             first_s = (int(x) for x in cam.w2s(*self._points[0]))
-            ring_r = max(2, int(POLYGON_CLOSE_RADIUS * cam.zoom))
+            ring_r = POLYGON_CLOSE_RADIUS
             pygame.draw.circle(surface,
                                self.CLOSE_RING_COLOR if near else (160,160,160),
                                (int(cam.w2s(*self._points[0])[0]),
