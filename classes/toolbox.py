@@ -131,6 +131,30 @@ class TextButton:
             surface.blit(lbl, (r.centerx - lbl.get_width()//2, r.centery - lbl.get_height()//2 + 1))
 
 
+# ── Checkbox ─────────────────────────────────────────────────────────────────────
+
+class Checkbox:
+    def __init__(self, name, label, rect, checked=True):
+        self.name = name
+        self.label = label
+        self.rect = rect
+        self.checked = checked
+
+    def draw(self, surface, hovered, font):
+        r = self.rect
+        box_rect = pygame.Rect(r.x, r.y + (r.height - 12)//2, 12, 12)
+        pygame.draw.rect(surface, TB_BTN_BG, box_rect, border_radius=2)
+        pygame.draw.rect(surface, TB_BTN_BORDER, box_rect, 1, border_radius=2)
+        
+        if self.checked:
+            pygame.draw.line(surface, TB_ICON_ACTIVE, (box_rect.x+2, box_rect.y+6), (box_rect.x+5, box_rect.y+9), 2)
+            pygame.draw.line(surface, TB_ICON_ACTIVE, (box_rect.x+5, box_rect.y+9), (box_rect.right-2, box_rect.y+3), 2)
+            
+        if font:
+            lbl = font.render(self.label, True, TB_LABEL_COLOR)
+            surface.blit(lbl, (box_rect.right + 6, r.centery - lbl.get_height()//2 + 1))
+
+
 # ── Toolbox ───────────────────────────────────────────────────────────────────────
 
 class Toolbox:
@@ -147,6 +171,7 @@ class Toolbox:
         self._tool_btns: list[ToolButton] = []
         self._sim_btns:  list[SimButton]  = []
         self._action_btns: list[TextButton] = []
+        self._checkboxes: list[Checkbox] = []
         self._title_font = None
         self._hint_font  = None
         self._action_font = None
@@ -186,6 +211,9 @@ class Toolbox:
         self._action_btns.append(TextButton('export', 'Export', pygame.Rect(self.rect.x + pad, y, bw2, bh)))
         self._action_btns.append(TextButton('import', 'Import', pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh)))
 
+        y += bh + 14
+        self._checkboxes.append(Checkbox('show_com', 'Show CoM', pygame.Rect(self.rect.x + pad, y, self.rect.width - pad*2, 20), True))
+
     def init_fonts(self):
         ToolButton.init_fonts()
         SimButton.init_fonts()
@@ -216,6 +244,12 @@ class Toolbox:
         for b in self._action_btns:
             if b.rect.collidepoint(pos):
                 return b.name
+        return None
+
+    def get_checkbox_at(self, pos) -> str | None:
+        for cb in self._checkboxes:
+            if cb.rect.collidepoint(pos):
+                return cb.name
         return None
 
     # ── draw ─────────────────────────────────────────────────────────────────────
@@ -251,6 +285,10 @@ class Toolbox:
         # Action buttons
         for b in self._action_btns:
             b.draw(surface, b.rect.collidepoint(mouse_pos), self._action_font)
+
+        # Checkboxes
+        for cb in self._checkboxes:
+            cb.draw(surface, cb.rect.collidepoint(mouse_pos), self._action_font)
 
         # Usage hint at bottom
         if active_tool and sim_state == 'stopped' and self._hint_font:

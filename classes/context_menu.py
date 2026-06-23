@@ -575,8 +575,10 @@ class ContextMenu:
             lines = disp_text.split('\n')
             ty = t_box.y + 2
             for line in lines:
+                avail_h = t_box.bottom - 2 - ty
+                if avail_h <= 0: break
                 ts = self._font.render(line, True, Colors.BLACK if self._text_edit else CM_TEXT_COLOR)
-                surface.blit(ts, (t_box.x + 3, ty), area=pygame.Rect(0, 0, t_box.width-6, ts.get_height()))
+                surface.blit(ts, (t_box.x + 3, ty), area=pygame.Rect(0, 0, t_box.width-6, min(ts.get_height(), avail_h)))
                 ty += ts.get_height()
 
     def _draw_motor(self, surface: pygame.Surface, mouse_pos):

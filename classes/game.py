@@ -32,6 +32,7 @@ class Game:
         self.selected:  set[Body]  = set()
         self.sim_state = STOPPED
         self.show_grid = True
+        self.show_com = True
 
         self.camera  = Camera(WIDTH, HEIGHT)
         self.drawing = DrawingTool()
@@ -298,6 +299,13 @@ class Game:
     def _lmb_down(self, pos):
         # Toolbox
         if self.toolbox.contains(pos):
+            cb = self.toolbox.get_checkbox_at(pos)
+            if cb == 'show_com':
+                self.show_com = not self.show_com
+                for box in self.toolbox._checkboxes:
+                    if box.name == 'show_com': box.checked = self.show_com
+                return
+
             act = self.toolbox.get_sim_action_at(pos)
             if act: self._sim_action(act); return
             
@@ -510,7 +518,7 @@ class Game:
         # Bodies
         for b in self.bodies:
             is_resizing = (self._ld_mode == 'resize' and getattr(self, '_resize_body', None) == b)
-            b.draw(self.canvas, cam, ghost=is_resizing)
+            b.draw(self.canvas, cam, ghost=is_resizing, show_com=self.show_com)
 
         # Joints
         for j in self.joints:

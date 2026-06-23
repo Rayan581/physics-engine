@@ -67,7 +67,7 @@ class Body:
     def resize(self, handle_id, wp_x, wp_y):
         pass
 
-    def draw(self, surface, cam, ghost=False):         raise NotImplementedError
+    def draw(self, surface, cam, ghost=False, show_com=True):         raise NotImplementedError
     def draw_outline(self, surface, cam, color, width=2): raise NotImplementedError
 
     def to_dict(self):
@@ -154,7 +154,7 @@ class RectBody(Body):
         return [(int(x),int(y)) for x,y in
                 [cam.w2s(vx,vy) for vx,vy in self.get_vertices()]]
 
-    def draw(self, surface, cam, ghost=False):
+    def draw(self, surface, cam, ghost=False, show_com=True):
         pts = self._screen_pts(cam)
         if ghost:
             _draw_ghost_poly(surface, pts)
@@ -164,8 +164,9 @@ class RectBody(Body):
         pygame.draw.polygon(surface, col, pts)
         pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
         # Centre-of-mass dot
-        sx, sy = cam.w2s(self.x, self.y)
-        pygame.draw.circle(surface, (220, 60, 60), (int(sx), int(sy)), max(3, int(3*cam.zoom)))
+        if show_com:
+            sx, sy = cam.w2s(self.x, self.y)
+            pygame.draw.circle(surface, (220, 60, 60), (int(sx), int(sy)), max(3, int(3*cam.zoom)))
 
     def draw_outline(self, surface, cam, color, width=2):
         pygame.draw.polygon(surface, color, self._screen_pts(cam), width)
@@ -205,7 +206,7 @@ class CircleBody(Body):
     def hit_test(self, px, py):
         return math.hypot(px-self.x, py-self.y) <= self.radius
 
-    def draw(self, surface, cam, ghost=False):
+    def draw(self, surface, cam, ghost=False, show_com=True):
         sx, sy = cam.w2s(self.x, self.y)
         r = max(1, int(self.radius * cam.zoom))
         
@@ -299,7 +300,7 @@ class PolygonBody(Body):
         return [(int(x),int(y)) for x,y in
                 [cam.w2s(vx,vy) for vx,vy in self.get_vertices()]]
 
-    def draw(self, surface, cam, ghost=False):
+    def draw(self, surface, cam, ghost=False, show_com=True):
         pts = self._screen_pts(cam)
         if ghost:
             _draw_ghost_poly(surface, pts)
@@ -309,8 +310,9 @@ class PolygonBody(Body):
         pygame.draw.polygon(surface, col, pts)
         pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
         # Centre-of-mass dot
-        sx, sy = cam.w2s(self.x, self.y)
-        pygame.draw.circle(surface, (220, 60, 60), (int(sx), int(sy)), max(3, int(3*cam.zoom)))
+        if show_com:
+            sx, sy = cam.w2s(self.x, self.y)
+            pygame.draw.circle(surface, (220, 60, 60), (int(sx), int(sy)), max(3, int(3*cam.zoom)))
 
     def draw_outline(self, surface, cam, color, width=2):
         pygame.draw.polygon(surface, color, self._screen_pts(cam), width)
@@ -370,9 +372,9 @@ class TextBody(RectBody):
         
         self._cached_surf = None
 
-    def draw(self, surface, cam, ghost=False):
+    def draw(self, surface, cam, ghost=False, show_com=True):
         if ghost:
-            super().draw(surface, cam, ghost=True)
+            super().draw(surface, cam, ghost=True, show_com=show_com)
             return
             
         col = self.color
