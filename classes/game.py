@@ -601,8 +601,11 @@ class Game:
 
         # Context menu
         if self.ctx_menu.is_open:
-            if self.ctx_menu.contains(pos): self.ctx_menu.handle_click(pos)
-            else:                            self.ctx_menu.close()
+            if self.ctx_menu.contains(pos): 
+                self.ctx_menu.handle_click(pos)
+                self._ld_mode = 'ctx_menu'
+            else:                            
+                self.ctx_menu.close()
             return
 
         if self.sim_state == PLAYING:
@@ -651,7 +654,9 @@ class Game:
         cp = self._canvas_pos(pos)
         raw_wp = self.camera.s2w(*cp)
 
-        if self._ld_mode == 'band':
+        if self._ld_mode == 'ctx_menu':
+            self.ctx_menu.handle_up(pos)
+        elif self._ld_mode == 'band':
             self._band_end_w = raw_wp
             new_sel = self._bodies_in_band()
             mods = pygame.key.get_mods()
@@ -750,7 +755,9 @@ class Game:
             self._rd_last_s = cp
 
         # Left: move or rubber-band
-        if self._ld_mode == 'move':
+        if self._ld_mode == 'ctx_menu':
+            self.ctx_menu.handle_motion(pos)
+        elif self._ld_mode == 'move':
             if self._ld_down_s:
                 ddx = cp[0]-self._ld_down_s[0]; ddy = cp[1]-self._ld_down_s[1]
                 if ddx*ddx+ddy*ddy >= DRAG_DIST**2:

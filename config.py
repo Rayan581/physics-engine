@@ -1,5 +1,5 @@
-WIDTH  = 800
-HEIGHT = 600
+WIDTH  = 1000
+HEIGHT = 650
 FPS    = 60
 TITLE  = "Physics Engine"
 
@@ -21,31 +21,38 @@ PHYSICS_SUBSTEPS      = 8      # sub-steps per frame (higher = stabler collision
 DRAW_COLLISION_POINTS = False   # toggle visualization of collision contacts
 
 # ── Body visuals ────────────────────────────────────────────────────────────────
-BODY_COLOR       = (200, 200, 220)
-BODY_FIXED_COLOR = (110, 110, 140)
+BODY_COLOR       = (210, 195, 175)
+BODY_FIXED_COLOR = (100,  90,  75)
 
-# ── Toolbox ─────────────────────────────────────────────────────────────────────
-TOOLBOX_WIDTH      = 80
-TB_BG              = (22,  22,  32)
-TB_BORDER          = (42,  42,  60)
-TB_BTN_BG          = (34,  34,  50)
-TB_BTN_HOVER_BG    = (50,  52,  75)
-TB_BTN_ACTIVE_BG   = (30,  65,  110)
-TB_BTN_BORDER      = (55,  55,  78)
-TB_ACCENT          = (100, 180, 255)
-TB_ICON_COLOR      = (170, 170, 205)
-TB_ICON_ACTIVE     = (140, 210, 255)
-TB_KEY_COLOR       = (90,  90,  120)
-TB_LABEL_COLOR     = (140, 140, 170)
-TB_HINT_COLOR      = (100, 100, 135)
-TB_TITLE_COLOR     = (120, 120, 155)
+# ── Warm-dark amber palette ──────────────────────────────────────────────────────
+#   Inspired by the reference screenshots — charcoal base with amber accents.
 
-# ── Context menu ────────────────────────────────────────────────────────────────
-CM_BG          = (28,  28,  42)
-CM_BORDER      = (60,  60,  90)
-CM_TITLE_COLOR = (180, 180, 210)
-CM_TEXT_COLOR  = (150, 150, 185)
-CM_BTN_BG      = (40,  40,  60)
-CM_BTN_HOVER   = (60,  60,  90)
-CM_BTN_ACTIVE  = (35,  85,  140)
-CM_ACCENT      = (100, 180, 255)
+# Toolbox
+TOOLBOX_WIDTH      = 140
+TB_BG              = (22,  18,  14)   # very dark warm brown
+TB_BORDER          = (50,  40,  28)
+TB_HEADER_BG       = (58,  36,  12)   # amber-brown header strip
+TB_BTN_BG          = (34,  26,  18)
+TB_BTN_HOVER_BG    = (55,  42,  26)
+TB_BTN_ACTIVE_BG   = (90,  52,  16)   # warm amber active
+TB_BTN_BORDER      = (70,  52,  30)
+TB_ACCENT          = (212, 120,  42)  # amber
+TB_ACCENT_BRIGHT   = (232, 148,  62)  # lighter amber on hover
+TB_ICON_COLOR      = (160, 130, 100)
+TB_ICON_ACTIVE     = (232, 180, 100)  # warm gold when active
+TB_KEY_COLOR       = (90,   72,  50)
+TB_LABEL_COLOR     = (180, 148, 110)
+TB_HINT_COLOR      = (110,  88,  62)
+TB_TITLE_COLOR     = (200, 160, 100)
+TB_SEP_COLOR       = (48,   38,  24)
+
+# Context menu
+CM_BG          = (24,  20,  14)
+CM_BORDER      = (58,  44,  26)
+CM_HEADER_BG   = (52,  32,  10)
+CM_TITLE_COLOR = (220, 175, 105)
+CM_TEXT_COLOR  = (170, 138, 100)
+CM_BTN_BG      = (38,  28,  18)
+CM_BTN_HOVER   = (62,  46,  28)
+CM_BTN_ACTIVE  = (88,  52,  16)
+CM_ACCENT      = (212, 120,  42)

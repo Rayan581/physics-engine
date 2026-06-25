@@ -48,6 +48,9 @@ class ContextMenu:
         self._hsv = (0.0, 1.0, 1.0)
         self._sv_cache = {}
         self._hue_surf = None
+        
+        self._dragging_sv = False
+        self._dragging_hue = False
 
     def init_fonts(self):
         self._font_t = pygame.font.SysFont("segoeui", 13, bold=True)
@@ -144,6 +147,8 @@ class ContextMenu:
         self._torque_edit = False
         self._min_edit = False
         self._max_edit = False
+        self._dragging_sv = False
+        self._dragging_hue = False
 
     def contains(self, pos) -> bool:
         return bool(self._rect and self._rect.collidepoint(pos))
@@ -430,29 +435,47 @@ class ContextMenu:
 
         sv_r = self._sv_rect()
         if sv_r.collidepoint(pos):
-            import colorsys
-            dx = pos[0] - sv_r.x
-            dy = pos[1] - sv_r.y
-            s = max(0.0, min(1.0, dx / sv_r.width))
-            v = 1.0 - max(0.0, min(1.0, dy / sv_r.height))
-            self._hsv = (self._hsv[0], s, v)
-            r, g, b = colorsys.hsv_to_rgb(*self._hsv)
-            self._body.color = (int(r*255), int(g*255), int(b*255))
-            self._r_text = f"{self._body.color[0]}"
-            self._g_text = f"{self._body.color[1]}"
-            self._b_text = f"{self._body.color[2]}"
+            self._dragging_sv = True
+            self._update_sv(pos, sv_r)
             
         hue_r = self._hue_rect()
         if hue_r.collidepoint(pos):
-            import colorsys
-            dx = pos[0] - hue_r.x
-            h = max(0.0, min(1.0, dx / hue_r.width))
-            self._hsv = (h, self._hsv[1], self._hsv[2])
-            r, g, b = colorsys.hsv_to_rgb(*self._hsv)
-            self._body.color = (int(r*255), int(g*255), int(b*255))
-            self._r_text = f"{self._body.color[0]}"
-            self._g_text = f"{self._body.color[1]}"
-            self._b_text = f"{self._body.color[2]}"
+            self._dragging_hue = True
+            self._update_hue(pos, hue_r)
+
+    def handle_motion(self, pos):
+        if self._dragging_sv:
+            self._update_sv(pos, self._sv_rect())
+        elif self._dragging_hue:
+            self._update_hue(pos, self._hue_rect())
+            
+    def handle_up(self, pos):
+        self._dragging_sv = False
+        self._dragging_hue = False
+        
+    def _update_sv(self, pos, sv_r):
+        import colorsys
+        dx = pos[0] - sv_r.x
+        dy = pos[1] - sv_r.y
+        s = max(0.0, min(1.0, dx / sv_r.width))
+        v = 1.0 - max(0.0, min(1.0, dy / sv_r.height))
+        self._hsv = (self._hsv[0], s, v)
+        r, g, b = colorsys.hsv_to_rgb(*self._hsv)
+        self._body.color = (int(r*255), int(g*255), int(b*255))
+        self._r_text = f"{self._body.color[0]}"
+        self._g_text = f"{self._body.color[1]}"
+        self._b_text = f"{self._body.color[2]}"
+        
+    def _update_hue(self, pos, hue_r):
+        import colorsys
+        dx = pos[0] - hue_r.x
+        h = max(0.0, min(1.0, dx / hue_r.width))
+        self._hsv = (h, self._hsv[1], self._hsv[2])
+        r, g, b = colorsys.hsv_to_rgb(*self._hsv)
+        self._body.color = (int(r*255), int(g*255), int(b*255))
+        self._r_text = f"{self._body.color[0]}"
+        self._g_text = f"{self._body.color[1]}"
+        self._b_text = f"{self._body.color[2]}"
 
     # ── button rects (screen-space) ─────────────────────────────────────────────
 
