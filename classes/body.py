@@ -13,7 +13,7 @@ def _draw_ghost_poly(surface, pts):
     if w > 0 and h > 0:
         g = pygame.Surface((int(w), int(h)), pygame.SRCALPHA)
         local_pts = [(p[0] - min_x, p[1] - min_y) for p in pts]
-        pygame.draw.polygon(g, (80, 180, 255, 40), local_pts)
+        pygame.draw.polygon(g, GHOST_COLOR_FILL, local_pts)
         surface.blit(g, (int(min_x), int(min_y)))
     pygame.draw.polygon(surface, Colors.WHITE, pts, 2)
 
@@ -166,11 +166,11 @@ class RectBody(Body):
             
         col = self.color
         pygame.draw.polygon(surface, col, pts)
-        pygame.draw.polygon(surface, (40, 30, 20), pts, 1)
+        pygame.draw.polygon(surface, BODY_OUTLINE_COLOR, pts, 1)
         # Centre-of-mass dot
         if show_com:
             sx, sy = cam.w2s(self.x, self.y)
-            pygame.draw.circle(surface, (220, 60, 60), (int(sx), int(sy)), max(3, int(3*cam.zoom)))
+            pygame.draw.circle(surface, COM_COLOR, (int(sx), int(sy)), max(3, int(3*cam.zoom)))
 
     def draw_outline(self, surface, cam, color, width=2):
         pygame.draw.polygon(surface, color, self._screen_pts(cam), width)
@@ -216,7 +216,7 @@ class CircleBody(Body):
         
         if ghost:
             g = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
-            pygame.draw.circle(g, (80, 180, 255, 40), (r, r), r)
+            pygame.draw.circle(g, GHOST_COLOR_FILL, (r, r), r)
             surface.blit(g, (int(sx)-r, int(sy)-r))
             pygame.draw.circle(surface, Colors.WHITE, (int(sx), int(sy)), r, 2)
             return
@@ -224,10 +224,10 @@ class CircleBody(Body):
         col = self.color
         lw = max(1, int(cam.zoom))
         pygame.draw.circle(surface, col, (int(sx), int(sy)), r)
-        pygame.draw.circle(surface, (40, 30, 20), (int(sx), int(sy)), r, lw)
+        pygame.draw.circle(surface, BODY_OUTLINE_COLOR, (int(sx), int(sy)), r, lw)
         ex = int(sx + r*math.cos(self.angle))
         ey = int(sy + r*math.sin(self.angle))
-        pygame.draw.line(surface, (40, 30, 20), (int(sx), int(sy)), (ex, ey), lw)
+        pygame.draw.line(surface, BODY_OUTLINE_COLOR, (int(sx), int(sy)), (ex, ey), lw)
 
     def draw_outline(self, surface, cam, color, width=2):
         sx, sy = cam.w2s(self.x, self.y)
@@ -312,11 +312,11 @@ class PolygonBody(Body):
 
         col = self.color
         pygame.draw.polygon(surface, col, pts)
-        pygame.draw.polygon(surface, (40, 30, 20), pts, 1)
+        pygame.draw.polygon(surface, BODY_OUTLINE_COLOR, pts, 1)
         # Centre-of-mass dot
         if show_com:
             sx, sy = cam.w2s(self.x, self.y)
-            pygame.draw.circle(surface, (220, 60, 60), (int(sx), int(sy)), max(3, int(3*cam.zoom)))
+            pygame.draw.circle(surface, COM_COLOR, (int(sx), int(sy)), max(3, int(3*cam.zoom)))
 
     def draw_outline(self, surface, cam, color, width=2):
         pygame.draw.polygon(surface, color, self._screen_pts(cam), width)
@@ -344,7 +344,7 @@ class PolygonBody(Body):
 class TextBody(RectBody):
     def __init__(self, x, y, text="Text", mass=1.0, restitution=0.5):
         self.text = text
-        self.font_size = 48
+        self.font_size = TEXT_BODY_FONT_SIZE
         self._cached_surf = None
         self._cached_text = None
         self._cached_color = None
@@ -360,7 +360,7 @@ class TextBody(RectBody):
 
     def _render_and_get_size(self):
         if not hasattr(TextBody, '_font'):
-            TextBody._font = pygame.font.SysFont("segoeui", self.font_size, bold=True)
+            TextBody._font = pygame.font.SysFont(FONT_NAME, self.font_size, bold=True)
             
         lines = self.text.split('\n')
         renders = [TextBody._font.render(line, True, Colors.WHITE) for line in lines]
@@ -393,7 +393,7 @@ class TextBody(RectBody):
             self._cached_color = col
             
             if not hasattr(TextBody, '_font'):
-                TextBody._font = pygame.font.SysFont("segoeui", self.font_size, bold=True)
+                TextBody._font = pygame.font.SysFont(FONT_NAME, self.font_size, bold=True)
                 
             lines = self.text.split('\n')
             renders = [TextBody._font.render(line, True, col) for line in lines]

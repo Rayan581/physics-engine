@@ -1,6 +1,6 @@
 import math
 import pygame
-from config import Colors
+from config import *
 
 def _rot(lx, ly, a):
     ca, sa = math.cos(a), math.sin(a)
@@ -234,7 +234,7 @@ class MotorJoint:
         sx, sy = cam.w2s(ax, ay)
         
         r = max(4, int(6 * cam.zoom))
-        color = (255, 150, 0) if self.motor_enabled else (100, 200, 255)
+        color = MOTOR_ENABLED_COLOR if self.motor_enabled else MOTOR_DISABLED_COLOR
         
         pygame.draw.circle(surface, color, (int(sx), int(sy)), r, 2)
         
@@ -264,8 +264,8 @@ class MotorJoint:
         p2 = (sx + math.cos(max_a) * r, sy + math.sin(max_a) * r)
         
         # Red line for Min, Green line for Max
-        pygame.draw.line(surface, (255, 100, 100), (int(sx), int(sy)), (int(p1[0]), int(p1[1])), 2)
-        pygame.draw.line(surface, (100, 255, 100), (int(sx), int(sy)), (int(p2[0]), int(p2[1])), 2)
+        pygame.draw.line(surface, LIMIT_MIN_COLOR, (int(sx), int(sy)), (int(p1[0]), int(p1[1])), 2)
+        pygame.draw.line(surface, LIMIT_MAX_COLOR, (int(sx), int(sy)), (int(p2[0]), int(p2[1])), 2)
         
         # Draw a faded pie slice for the allowed area
         rect = pygame.Rect(0, 0, r*2, r*2)
@@ -275,4 +275,4 @@ class MotorJoint:
         # Also draw current body A angle line longer to see where it is relative to limits
         ca, sa = math.cos(self.a.angle), math.sin(self.a.angle)
         pa = (sx + ca * (r - 5), sy + sa * (r - 5))
-        pygame.draw.line(surface, (255, 255, 255), (int(sx), int(sy)), (int(pa[0]), int(pa[1])), 1)
+        pygame.draw.line(surface, Colors.WHITE, (int(sx), int(sy)), (int(pa[0]), int(pa[1])), 1)

@@ -1,5 +1,6 @@
+from config import CAMERA_MIN_ZOOM, CAMERA_MAX_ZOOM
+
 class Camera:
-    MIN_ZOOM, MAX_ZOOM = 0.1, 10.0
 
     def __init__(self, view_w: int, view_h: int):
         self.view_w = view_w
@@ -22,7 +23,7 @@ class Camera:
 
     def zoom_at(self, sx, sy, factor):
         wx, wy = self.s2w(sx, sy)
-        self.zoom = max(self.MIN_ZOOM, min(self.MAX_ZOOM, self.zoom * factor))
+        self.zoom = max(CAMERA_MIN_ZOOM, min(CAMERA_MAX_ZOOM, self.zoom * factor))
         self.cam_x = wx - (sx - self.view_w / 2) / self.zoom
         self.cam_y = wy - (sy - self.view_h / 2) / self.zoom
 

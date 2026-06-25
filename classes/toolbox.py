@@ -41,7 +41,7 @@ def _icon_text(surf, cx, cy, active):
 def _draw_toggle(surface, rect, checked, hovered):
     """Draw a pill-shaped toggle switch."""
     r = rect
-    track_col = TB_ACCENT if checked else (50, 38, 24)
+    track_col = TB_ACCENT if checked else TB_TOGGLE_TRACK_OFF
     track_border = TB_ACCENT if checked else TB_BTN_BORDER
     pygame.draw.rect(surface, track_col, r, border_radius=r.height//2)
     pygame.draw.rect(surface, track_border, r, 1, border_radius=r.height//2)
@@ -49,7 +49,7 @@ def _draw_toggle(surface, rect, checked, hovered):
     knob_r = r.height // 2 - 2
     kx = r.right - knob_r - 3 if checked else r.x + knob_r + 3
     ky = r.centery
-    knob_col = (230, 200, 150) if checked else (120, 95, 65)
+    knob_col = TB_TOGGLE_KNOB_ON if checked else TB_TOGGLE_KNOB_OFF
     pygame.draw.circle(surface, knob_col, (kx, ky), knob_r)
 
 
@@ -112,14 +112,14 @@ class SimButton:
         r = self.rect
         is_active = (sim_state == self.name)
         if self.name == 'playing':
-            accent = (82, 190, 100)
-            accent_active = (110, 220, 130)
+            accent = TB_PLAY_ACCENT
+            accent_active = TB_PLAY_ACCENT_ACTIVE
         elif self.name == 'paused':
-            accent = (200, 160, 50)
-            accent_active = (230, 190, 70)
+            accent = TB_PAUSE_ACCENT
+            accent_active = TB_PAUSE_ACCENT_ACTIVE
         else:
-            accent = (190, 75, 60)
-            accent_active = (220, 100, 85)
+            accent = TB_STOP_ACCENT
+            accent_active = TB_STOP_ACCENT_ACTIVE
 
         col = accent_active if is_active else (accent if hovered else TB_BTN_BG)
         border = accent if (is_active or hovered) else TB_BTN_BORDER
@@ -127,7 +127,7 @@ class SimButton:
         pygame.draw.rect(surface, border, r, 1, border_radius=r.height//2)
 
         cx, cy = r.centerx, r.centery
-        ic = (255, 255, 255) if is_active else (180, 160, 130)
+        ic = Colors.WHITE if is_active else TB_ICON_INACTIVE
         if self.name == 'playing':
             pts = [(cx-4, cy-5), (cx-4, cy+5), (cx+5, cy)]
             pygame.draw.polygon(surface, ic, pts)
@@ -149,7 +149,7 @@ class TextButton:
     def draw(self, surface, hovered, font):
         r = self.rect
         bg     = TB_BTN_HOVER_BG if hovered else TB_BTN_BG
-        border = TB_BTN_BORDER   if hovered else (40, 30, 18)
+        border = TB_BTN_BORDER   if hovered else TB_BTN_BORDER_IDLE
         pygame.draw.rect(surface, bg, r, border_radius=6)
         pygame.draw.rect(surface, border, r, 1, border_radius=6)
         if font:

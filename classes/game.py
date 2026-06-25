@@ -12,8 +12,8 @@ STOPPED = 'stopped'
 PLAYING = 'playing'
 PAUSED  = 'paused'
 
-SEL_COLOR  = (212, 140,  50)   # amber selection outline
-BAND_COLOR = (180, 110,  40)   # amber rubber-band rect
+SEL_COLOR  = SEL_COLOR
+BAND_COLOR = BAND_COLOR
 DRAG_DIST  = 4                # px to distinguish click from drag (screen space)
 ZOOM_IN    = 1.15
 ZOOM_OUT   = 1 / 1.15
@@ -311,7 +311,7 @@ class Game:
                                 self.fast_forward = not self.fast_forward
                     
                     # Draw live training HUD
-                    self.canvas.fill((18, 14, 10))
+                    self.canvas.fill(CANVAS_BG)
                     if self.viz_all:
                         self._draw()
                         target = trainer.get_camera_target()
@@ -379,7 +379,7 @@ class Game:
                             
                         is_done, _ = trainer.check_status()
                         
-                        self.canvas.fill((18, 14, 10))
+                        self.canvas.fill(CANVAS_BG)
                         self._draw()
                         self._draw_network(self.canvas, best_genome, config, obs, action)
                         
@@ -444,7 +444,7 @@ class Game:
                 if is_done:
                     self._stop()
                     
-            self.canvas.fill((18, 14, 10))
+            self.canvas.fill(CANVAS_BG)
             self._draw()
             if self.sim_state == 'ai_playing' and hasattr(self, 'ai_net') and hasattr(self, 'trainer'):
                 import neat
@@ -787,14 +787,14 @@ class Game:
         x = start_x
         while x <= right_w:
             sx, _ = cam.w2s(x, 0)
-            pygame.draw.line(self.canvas, (32, 26, 18), (int(sx), 0), (int(sx), cam.view_h))
+            pygame.draw.line(self.canvas, GRID_COLOR, (int(sx), 0), (int(sx), cam.view_h))
             x += world_spacing
             
         # Draw horizontal lines
         y = start_y
         while y <= bottom_w:
             _, sy = cam.w2s(0, y)
-            pygame.draw.line(self.canvas, (32, 26, 18), (0, int(sy)), (cam.view_w, int(sy)))
+            pygame.draw.line(self.canvas, GRID_COLOR, (0, int(sy)), (cam.view_w, int(sy)))
             y += world_spacing
 
     def _draw_training_hud(self, generation, genome_idx, total, best_fitness):
@@ -815,22 +815,22 @@ class Game:
         x0, y0 = PAD + 8, PAD + 8
 
         # Row 1 – title
-        title = font_t.render(f"Training  ·  Gen {generation}", True, (220, 180, 120))
+        title = font_t.render(f"Training  ·  Gen {generation}", True, TRAINING_TITLE_COLOR)
         self.canvas.blit(title, (x0, y0))
 
         # Row 2 – genome progress bar
         y1 = y0 + 20
         bar_w = W - 16
         frac  = genome_idx / max(total, 1)
-        pygame.draw.rect(self.canvas, (40, 30, 20), (x0, y1, bar_w, 10), border_radius=3)
-        pygame.draw.rect(self.canvas, (212, 120, 42), (x0, y1, int(bar_w * frac), 10), border_radius=3)
-        prog_lbl = font.render(f"Genome {genome_idx}/{total}", True, (170, 140, 100))
+        pygame.draw.rect(self.canvas, TRAINING_BAR_BG, (x0, y1, bar_w, 10), border_radius=3)
+        pygame.draw.rect(self.canvas, TRAINING_BAR_FILL, (x0, y1, int(bar_w * frac), 10), border_radius=3)
+        prog_lbl = font.render(f"Genome {genome_idx}/{total}", True, TRAINING_PROG_LBL)
         self.canvas.blit(prog_lbl, (x0, y1 + 13))
 
         # Row 3 – best fitness
         y2 = y1 + 32
         fit_str  = f"{best_fitness:,.0f}" if best_fitness > -float('inf') else "—"
-        fit_lbl  = font.render(f"Best fitness:  {fit_str}", True, (240, 210, 160))
+        fit_lbl  = font.render(f"Best fitness:  {fit_str}", True, TRAINING_FIT_LBL)
         self.canvas.blit(fit_lbl, (x0, y2))
 
         # Row 4 – VIZ indicator badge
@@ -839,12 +839,12 @@ class Game:
         pulse  = (pygame.time.get_ticks() % 1000) < 500   # 1 Hz blink when OFF
 
         if viz_on:
-            badge_col = (50, 200, 100)
-            text_col  = (220, 255, 220)
+            badge_col = BADGE_PLAY_COL
+            text_col  = BADGE_PLAY_TEXT
             label     = "VIZ  ON   [F] toggle"
         else:
-            badge_col = (180, 60, 60) if pulse else (100, 30, 30)
-            text_col  = (255, 200, 200) if pulse else (180, 120, 120)
+            badge_col = BADGE_FAST_COL_PULSE if pulse else BADGE_FAST_COL
+            text_col  = BADGE_FAST_TEXT_PULSE if pulse else BADGE_FAST_TEXT
             label     = "VIZ  OFF  [F] toggle"
 
         badge_rect = pygame.Rect(x0, y3, W - 16, 20)
@@ -857,7 +857,7 @@ class Game:
         self.canvas.blit(badge_lbl, (x0 + 4, y3 + 2))
 
         # Hint line
-        hint = font.render("ESC: abort", True, (100, 100, 130))
+        hint = font.render("ESC: abort", True, ESC_HINT_COL)
         self.canvas.blit(hint, (x0, y3 + 24))
 
     def _draw_network(self, surface, genome, config, inputs, outputs):
@@ -929,7 +929,7 @@ class Game:
 
         # Label
         lbl_font = self.ctx_menu._font
-        lbl = lbl_font.render("Neural Network", True, (220, 180, 120))
+        lbl = lbl_font.render("Neural Network", True, NN_TITLE_COL)
         surface.blit(lbl, (ox + 6, oy + 4))
 
         # ── edges ──────────────────────────────────────────────────────────────
@@ -982,14 +982,14 @@ class Game:
             pygame.draw.circle(surface, col, (int(sx), int(sy)), node_r)
             # Border
             if k in input_keys:
-                border = (120, 200, 100)    # greenish
-            elif k in output_keys:
-                border = (232, 180, 100)    # gold
+                border = NN_BORDER_POS    # greenish
+            elif val < -0.1:
+                border = NN_BORDER_NEG    # gold
             else:
-                border = (140, 110, 80)     # muted warm brown
+                border = NN_BORDER_NEUT     # muted warm brown
             pygame.draw.circle(surface, border, (int(sx), int(sy)), node_r, 2)
             # Value label
-            val_lbl = lbl_font.render(f"{val:.2f}", True, (230, 230, 230))
+            val_lbl = lbl_font.render(f"{val:.2f}", True, NN_VAL_LBL)
             surface.blit(val_lbl, (int(sx - val_lbl.get_width() // 2),
                                    int(sy + node_r + 2)))
 
@@ -1050,7 +1050,7 @@ class Game:
             for m in self._last_manifolds:
                 for cx, cy in m.contacts:
                     sx, sy = cam.w2s(cx, cy)
-                    pygame.draw.circle(self.canvas, (255, 255, 50), (int(sx), int(sy)), max(3, int(4*cam.zoom)))
+                    pygame.draw.circle(self.canvas, SELECTED_HANDLE_COL, (int(sx), int(sy)), max(3, int(4*cam.zoom)))
 
         # Rubber-band
         if self._ld_mode == 'band' and self._ld_down_w and self._band_end_w:

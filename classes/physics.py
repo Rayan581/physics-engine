@@ -2,7 +2,7 @@ import math
 from dataclasses import dataclass
 from typing import Optional
 from classes.body import Body, CircleBody
-from config import WORLD_KILL_LIMIT
+from config import WORLD_KILL_LIMIT, FRICTION_COEFFICIENT, POSITIONAL_CORRECTION_PERCENT, POSITIONAL_CORRECTION_SLOP
 
 
 @dataclass
@@ -176,7 +176,7 @@ def resolve(m: Manifold):
             rb_t = rbx*ty - rby*tx
             denom_t = a.inv_mass + b.inv_mass + ra_t**2*a.inv_inertia + rb_t**2*b.inv_inertia
             if denom_t > 1e-10:
-                mu = 0.3
+                mu = FRICTION_COEFFICIENT
                 jt = -tl / denom_t
                 jt = max(jt, -mu*abs(j))
                 a.vx += jt*a.inv_mass*tx;  a.vy += jt*a.inv_mass*ty
@@ -187,7 +187,7 @@ def resolve(m: Manifold):
 
 # ── Positional correction ───────────────────────────────────────────────────────
 
-def positional_correction(m: Manifold, percent=0.8, slop=0.1):
+def positional_correction(m: Manifold, percent=POSITIONAL_CORRECTION_PERCENT, slop=POSITIONAL_CORRECTION_SLOP):
     denom = m.a.inv_mass + m.b.inv_mass
     if denom < 1e-10: return
     # Clamp depth correction to prevent teleporting from extreme deep overlaps

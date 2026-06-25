@@ -618,7 +618,7 @@ class ContextMenu:
         # Name Text Box
         nbox = self._name_box()
         is_edit = self._name_edit
-        pygame.draw.rect(surface, (40, 30, 18) if is_edit else CM_BTN_BG, nbox, border_radius=4)
+        pygame.draw.rect(surface, CM_TEXTBOX_EDIT_BG if is_edit else CM_BTN_BG, nbox, border_radius=4)
         pygame.draw.rect(surface, CM_ACCENT if is_edit else CM_BORDER, nbox, 1, border_radius=4)
         
         disp_text = self._name_text if is_edit else getattr(self._body, 'name', '')
@@ -735,8 +735,8 @@ class ContextMenu:
         # Indicator for SV
         ix = sv_r.x + int(self._hsv[1] * sv_r.width)
         iy = sv_r.y + int((1.0 - self._hsv[2]) * sv_r.height)
-        pygame.draw.circle(surface, (0, 0, 0), (ix, iy), 4, 1)
-        pygame.draw.circle(surface, (255, 255, 255), (ix, iy), 3, 1)
+        pygame.draw.circle(surface, Colors.BLACK, (ix, iy), 4, 1)
+        pygame.draw.circle(surface, Colors.WHITE, (ix, iy), 3, 1)
 
         hue_r = self._hue_rect()
         hue_surf = self._get_hue_surface()
@@ -745,7 +745,7 @@ class ContextMenu:
         
         # Indicator for Hue
         hx = hue_r.x + int(self._hsv[0] * hue_r.width)
-        pygame.draw.rect(surface, (255, 255, 255), (hx - 2, hue_r.y - 1, 4, hue_r.height + 2), 1, border_radius=1)
+        pygame.draw.rect(surface, Colors.WHITE, (hx - 2, hue_r.y - 1, 4, hue_r.height + 2), 1, border_radius=1)
 
         # Text input box
         if type(self._body).__name__ == "TextBody":
