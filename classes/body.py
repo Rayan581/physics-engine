@@ -29,6 +29,7 @@ class Body:
         self.fixed = False
         self.layers = {"Default"}
         self.color = BODY_COLOR
+        self.name = ""
         self._snap()
 
     def _snap(self):
@@ -73,6 +74,7 @@ class Body:
     def to_dict(self):
         return {
             "type": type(self).__name__,
+            "name": getattr(self, "name", ""),
             "x": self.x, "y": self.y,
             "vx": self.vx, "vy": self.vy,
             "angle": self.angle, "angular_velocity": self.angular_velocity,
@@ -109,6 +111,8 @@ class Body:
         else:
             return None
         b._load_base_dict(d)
+        if "name" in d:
+            b.name = d["name"]
         return b
 
 
@@ -162,7 +166,7 @@ class RectBody(Body):
             
         col = self.color
         pygame.draw.polygon(surface, col, pts)
-        pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
+        pygame.draw.polygon(surface, (40, 30, 20), pts, 1)
         # Centre-of-mass dot
         if show_com:
             sx, sy = cam.w2s(self.x, self.y)
@@ -220,10 +224,10 @@ class CircleBody(Body):
         col = self.color
         lw = max(1, int(cam.zoom))
         pygame.draw.circle(surface, col, (int(sx), int(sy)), r)
-        pygame.draw.circle(surface, Colors.BLACK, (int(sx), int(sy)), r, lw)
+        pygame.draw.circle(surface, (40, 30, 20), (int(sx), int(sy)), r, lw)
         ex = int(sx + r*math.cos(self.angle))
         ey = int(sy + r*math.sin(self.angle))
-        pygame.draw.line(surface, Colors.BLACK, (int(sx), int(sy)), (ex, ey), lw)
+        pygame.draw.line(surface, (40, 30, 20), (int(sx), int(sy)), (ex, ey), lw)
 
     def draw_outline(self, surface, cam, color, width=2):
         sx, sy = cam.w2s(self.x, self.y)
@@ -308,7 +312,7 @@ class PolygonBody(Body):
 
         col = self.color
         pygame.draw.polygon(surface, col, pts)
-        pygame.draw.polygon(surface, Colors.BLACK, pts, 1)
+        pygame.draw.polygon(surface, (40, 30, 20), pts, 1)
         # Centre-of-mass dot
         if show_com:
             sx, sy = cam.w2s(self.x, self.y)
@@ -348,6 +352,11 @@ class TextBody(RectBody):
         w, h = self._render_and_get_size()
         super().__init__(x, y, w, h, mass, restitution)
         self.fixed = False
+
+    def to_dict(self):
+        d = super().to_dict()
+        d["text"] = self.text
+        return d
 
     def _render_and_get_size(self):
         if not hasattr(TextBody, '_font'):

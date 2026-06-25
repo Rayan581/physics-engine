@@ -1,7 +1,13 @@
 import json
 
-def serialize(bodies, joints) -> dict:
-    body_to_id = {b: str(id(b)) for b in bodies}
+def serialize(bodies, joints, camera_data=None) -> dict:
+    body_to_id = {}
+    for b in bodies:
+        if not hasattr(b, 'id'):
+            import time
+            b.id = str(int(time.time() * 1000)) + str(id(b))[-4:]
+        body_to_id[b] = b.id
+        
     data = {"bodies": [], "joints": []}
     
     for b in bodies:
@@ -14,6 +20,9 @@ def serialize(bodies, joints) -> dict:
         jd["body_a"] = body_to_id[j.a]
         jd["body_b"] = body_to_id[j.b] if j.b else None
         data["joints"].append(jd)
+        
+    if camera_data:
+        data["camera"] = camera_data
         
     return data
 
@@ -41,7 +50,9 @@ def deserialize(data: dict, offset_x=0.0, offset_y=0.0):
         from classes.body import Body
         b = Body.from_dict(bd_c)
         if b:
-            if bid: id_to_body[bid] = b
+            if bid:
+                id_to_body[bid] = b
+                b.id = bid
             bodies.append(b)
             
     for jd in data.get("joints", []):
@@ -60,11 +71,12 @@ def deserialize(data: dict, offset_x=0.0, offset_y=0.0):
             j = MotorJoint.from_dict(jd_c, a, b)
             joints.append(j)
             
-    return bodies, joints
+    camera_data = data.get("camera", {})
+    return bodies, joints, camera_data
 
-def save_to_file(filepath: str, bodies: list, joints: list):
+def save_to_file(filepath: str, bodies: list, joints: list, camera_data: dict = None):
     with open(filepath, 'w') as f:
-        json.dump(serialize(bodies, joints), f, indent=2)
+        json.dump(serialize(bodies, joints, camera_data), f, indent=2)
 
 def load_from_file(filepath: str, offset_x=0.0, offset_y=0.0):
     with open(filepath, 'r') as f:
@@ -88,5 +100,15 @@ def get_open_path():
     root.withdraw()
     root.attributes('-topmost', True)
     path = filedialog.askopenfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
+    root.destroy()
+    return path
+
+def get_script_path():
+    import tkinter as tk
+    from tkinter import filedialog
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    path = filedialog.askopenfilename(defaultextension=".py", filetypes=[("Python files", "*.py")])
     root.destroy()
     return path
