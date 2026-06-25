@@ -17,6 +17,22 @@ def _draw_ghost_poly(surface, pts):
         surface.blit(g, (int(min_x), int(min_y)))
     pygame.draw.polygon(surface, Colors.WHITE, pts, 2)
 
+def _draw_alpha_poly(surface, pts, color):
+    min_x = min(p[0] for p in pts); max_x = max(p[0] for p in pts)
+    min_y = min(p[1] for p in pts); max_y = max(p[1] for p in pts)
+    w = max_x - min_x; h = max_y - min_y
+    if w > 0 and h > 0:
+        g = pygame.Surface((int(w), int(h)), pygame.SRCALPHA)
+        local_pts = [(p[0] - min_x, p[1] - min_y) for p in pts]
+        pygame.draw.polygon(g, color, local_pts)
+        surface.blit(g, (int(min_x), int(min_y)))
+
+def _draw_alpha_circle(surface, center, r, color):
+    if r > 0:
+        g = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+        pygame.draw.circle(g, color, (r, r), r)
+        surface.blit(g, (int(center[0]-r), int(center[1]-r)))
+
 
 class Body:
     def __init__(self, x, y, mass=1.0, restitution=0.5):
@@ -29,6 +45,9 @@ class Body:
         self.fixed = False
         self.layers = {"Default"}
         self.color = BODY_COLOR
+        self.alpha = 255
+        self.show_outline = True
+        self.outline_color = BODY_OUTLINE_COLOR
         self.name = ""
         self._snap()
 
@@ -82,6 +101,9 @@ class Body:
             "fixed": self.fixed,
             "layers": list(self.layers),
             "color": list(self.color),
+            "alpha": self.alpha,
+            "show_outline": self.show_outline,
+            "outline_color": list(self.outline_color),
             "_init": self._init
         }
 
@@ -93,6 +115,9 @@ class Body:
         self.fixed = d.get("fixed", False)
         self.layers = set(d.get("layers", ["Default"]))
         self.color = tuple(d.get("color", BODY_COLOR))
+        self.alpha = d.get("alpha", 255)
+        self.show_outline = d.get("show_outline", True)
+        self.outline_color = tuple(d.get("outline_color", BODY_OUTLINE_COLOR))
         self._init = d.get("_init", dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=0.0, av=0.0))
 
     @staticmethod
@@ -165,8 +190,14 @@ class RectBody(Body):
             return
             
         col = self.color
-        pygame.draw.polygon(surface, col, pts)
-        pygame.draw.polygon(surface, BODY_OUTLINE_COLOR, pts, 1)
+        if self.alpha < 255:
+            _draw_alpha_poly(surface, pts, (*col, self.alpha))
+        else:
+            pygame.draw.polygon(surface, col, pts)
+            
+        if self.show_outline:
+            pygame.draw.polygon(surface, self.outline_color, pts, 1)
+            
         # Centre-of-mass dot
         if show_com:
             sx, sy = cam.w2s(self.x, self.y)
@@ -223,11 +254,17 @@ class CircleBody(Body):
 
         col = self.color
         lw = max(1, int(cam.zoom))
-        pygame.draw.circle(surface, col, (int(sx), int(sy)), r)
-        pygame.draw.circle(surface, BODY_OUTLINE_COLOR, (int(sx), int(sy)), r, lw)
-        ex = int(sx + r*math.cos(self.angle))
-        ey = int(sy + r*math.sin(self.angle))
-        pygame.draw.line(surface, BODY_OUTLINE_COLOR, (int(sx), int(sy)), (ex, ey), lw)
+        
+        if self.alpha < 255:
+            _draw_alpha_circle(surface, (sx, sy), r, (*col, self.alpha))
+        else:
+            pygame.draw.circle(surface, col, (int(sx), int(sy)), r)
+            
+        if self.show_outline:
+            pygame.draw.circle(surface, self.outline_color, (int(sx), int(sy)), r, lw)
+            ex = int(sx + r*math.cos(self.angle))
+            ey = int(sy + r*math.sin(self.angle))
+            pygame.draw.line(surface, self.outline_color, (int(sx), int(sy)), (ex, ey), lw)
 
     def draw_outline(self, surface, cam, color, width=2):
         sx, sy = cam.w2s(self.x, self.y)
@@ -311,8 +348,14 @@ class PolygonBody(Body):
             return
 
         col = self.color
-        pygame.draw.polygon(surface, col, pts)
-        pygame.draw.polygon(surface, BODY_OUTLINE_COLOR, pts, 1)
+        if self.alpha < 255:
+            _draw_alpha_poly(surface, pts, (*col, self.alpha))
+        else:
+            pygame.draw.polygon(surface, col, pts)
+            
+        if self.show_outline:
+            pygame.draw.polygon(surface, self.outline_color, pts, 1)
+            
         # Centre-of-mass dot
         if show_com:
             sx, sy = cam.w2s(self.x, self.y)

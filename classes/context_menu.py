@@ -101,7 +101,7 @@ class ContextMenu:
             self._min_text = f"{math.degrees(body.min_angle):.0f}"
             self._max_text = f"{math.degrees(body.max_angle):.0f}"
         else:
-            self.H = 494 if type(body).__name__ == "TextBody" else 444
+            self.H = 554 if type(body).__name__ == "TextBody" else 504
             self._name_text = getattr(body, 'name', '')
             self._mass_text = f"{body.mass:.1f}"
             self._layer_text = ", ".join(sorted(body.layers))
@@ -113,10 +113,12 @@ class ContextMenu:
             r, g, b = body.color
             h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
             self._hsv = (h, s, v)
+            self._alpha_val = body.alpha / 255.0
             if type(body).__name__ == "TextBody":
                 self._text_text = body.text
             
         self._rect = pygame.Rect(mx, my, self.W, self.H)
+        self._color_target = 'fill'
         self._mass_edit = False
         self._layer_edit = False
         self._name_edit = False
@@ -138,6 +140,7 @@ class ContextMenu:
         self._rect = None
         self._mass_edit = False
         self._layer_edit = False
+        self._dragging_alpha = False
         self._name_edit = False
         self._text_edit = False
         self._r_edit = False
@@ -425,12 +428,10 @@ class ContextMenu:
             
         for i, r in enumerate(self._preset_boxes()):
             if r.collidepoint(pos):
-                self._body.color = self._presets[i]
-                self._r_text = f"{self._presets[i][0]}"
-                self._g_text = f"{self._presets[i][1]}"
-                self._b_text = f"{self._presets[i][2]}"
+                self._set_active_color(self._presets[i])
+                c = self._get_active_color()
                 import colorsys
-                h, s, v = colorsys.rgb_to_hsv(self._presets[i][0] / 255.0, self._presets[i][1] / 255.0, self._presets[i][2] / 255.0)
+                h, s, v = colorsys.rgb_to_hsv(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0)
                 self._hsv = (h, s, v)
 
         sv_r = self._sv_rect()
@@ -442,16 +443,33 @@ class ContextMenu:
         if hue_r.collidepoint(pos):
             self._dragging_hue = True
             self._update_hue(pos, hue_r)
+            
+        alpha_r = self._alpha_rect()
+        if alpha_r.collidepoint(pos):
+            self._dragging_alpha = True
+            self._update_alpha(pos, alpha_r)
+            
+        if self._outline_btn().collidepoint(pos):
+            self._body.show_outline = not self._body.show_outline
+            
+        if self._target_fill_btn().collidepoint(pos):
+            self._set_color_target('fill')
+            
+        if self._target_outline_btn().collidepoint(pos):
+            self._set_color_target('outline')
 
     def handle_motion(self, pos):
         if self._dragging_sv:
             self._update_sv(pos, self._sv_rect())
         elif self._dragging_hue:
             self._update_hue(pos, self._hue_rect())
+        elif self._dragging_alpha:
+            self._update_alpha(pos, self._alpha_rect())
             
     def handle_up(self, pos):
         self._dragging_sv = False
         self._dragging_hue = False
+        self._dragging_alpha = False
         
     def _update_sv(self, pos, sv_r):
         import colorsys
@@ -461,10 +479,7 @@ class ContextMenu:
         v = 1.0 - max(0.0, min(1.0, dy / sv_r.height))
         self._hsv = (self._hsv[0], s, v)
         r, g, b = colorsys.hsv_to_rgb(*self._hsv)
-        self._body.color = (int(r*255), int(g*255), int(b*255))
-        self._r_text = f"{self._body.color[0]}"
-        self._g_text = f"{self._body.color[1]}"
-        self._b_text = f"{self._body.color[2]}"
+        self._set_active_color((int(r*255), int(g*255), int(b*255)))
         
     def _update_hue(self, pos, hue_r):
         import colorsys
@@ -472,12 +487,68 @@ class ContextMenu:
         h = max(0.0, min(1.0, dx / hue_r.width))
         self._hsv = (h, self._hsv[1], self._hsv[2])
         r, g, b = colorsys.hsv_to_rgb(*self._hsv)
-        self._body.color = (int(r*255), int(g*255), int(b*255))
-        self._r_text = f"{self._body.color[0]}"
-        self._g_text = f"{self._body.color[1]}"
-        self._b_text = f"{self._body.color[2]}"
+        self._set_active_color((int(r*255), int(g*255), int(b*255)))
+
+    def _update_alpha(self, pos, alpha_r):
+        dx = pos[0] - alpha_r.x
+        self._alpha_val = max(0.0, min(1.0, dx / alpha_r.width))
+        self._body.alpha = int(self._alpha_val * 255)
 
     # ── button rects (screen-space) ─────────────────────────────────────────────
+
+    def _draw_target_toggle(self, surface, mouse_pos):
+        fill_btn = self._target_fill_btn()
+        out_btn = self._target_outline_btn()
+        
+        # Fill
+        hov_f = fill_btn.collidepoint(mouse_pos)
+        act_f = self._color_target == 'fill'
+        pygame.draw.rect(surface, CM_BTN_ACTIVE if act_f else (CM_BTN_HOVER if hov_f else CM_BTN_BG), fill_btn, border_radius=3)
+        pygame.draw.rect(surface, CM_ACCENT if act_f else CM_BORDER, fill_btn, 1, border_radius=3)
+        ls = self._font.render("Fill", True, Colors.WHITE if act_f else CM_TEXT_COLOR)
+        surface.blit(ls, ls.get_rect(center=fill_btn.center))
+
+        # Outline
+        hov_o = out_btn.collidepoint(mouse_pos)
+        act_o = self._color_target == 'outline'
+        pygame.draw.rect(surface, CM_BTN_ACTIVE if act_o else (CM_BTN_HOVER if hov_o else CM_BTN_BG), out_btn, border_radius=3)
+        pygame.draw.rect(surface, CM_ACCENT if act_o else CM_BORDER, out_btn, 1, border_radius=3)
+        ls = self._font.render("Outline", True, Colors.WHITE if act_o else CM_TEXT_COLOR)
+        surface.blit(ls, ls.get_rect(center=out_btn.center))
+
+    def _get_active_color(self):
+        return self._body.color if self._color_target == 'fill' else self._body.outline_color
+
+    def _set_active_color(self, color):
+        if self._color_target == 'fill':
+            self._body.color = color
+        else:
+            self._body.outline_color = color
+        self._r_text = f"{color[0]}"
+        self._g_text = f"{color[1]}"
+        self._b_text = f"{color[2]}"
+
+    def _set_color_target(self, target):
+        self._color_target = target
+        c = self._get_active_color()
+        self._r_text = f"{c[0]}"
+        self._g_text = f"{c[1]}"
+        self._b_text = f"{c[2]}"
+        import colorsys
+        h, s, v = colorsys.rgb_to_hsv(c[0]/255.0, c[1]/255.0, c[2]/255.0)
+        self._hsv = (h, s, v)
+
+    def _outline_btn(self):
+        return pygame.Rect(self._rect.x + self.PAD + 62, self._rect.y + 72, 32, 18)
+
+    def _target_fill_btn(self):
+        return pygame.Rect(self._rect.x + self.PAD, self._rect.y + 209, 44, 18)
+
+    def _target_outline_btn(self):
+        return pygame.Rect(self._rect.x + self.PAD + 48, self._rect.y + 209, 56, 18)
+
+    def _alpha_rect(self):
+        return pygame.Rect(self._rect.x + self.PAD + 12, self._rect.y + 448, 120, 16)
 
     def _fixed_btn(self):
         y = 38 if self.is_motor else 72
@@ -536,27 +607,27 @@ class ContextMenu:
         return self._hue_surf
         
     def _r_box(self):
-        return pygame.Rect(self._rect.x + 48, self._rect.y + 208, 30, 18)
+        return pygame.Rect(self._rect.x + 48, self._rect.y + 242, 30, 18)
         
     def _g_box(self):
-        return pygame.Rect(self._rect.x + 83, self._rect.y + 208, 30, 18)
+        return pygame.Rect(self._rect.x + 83, self._rect.y + 242, 30, 18)
         
     def _b_box(self):
-        return pygame.Rect(self._rect.x + 118, self._rect.y + 208, 30, 18)
+        return pygame.Rect(self._rect.x + 118, self._rect.y + 242, 30, 18)
         
     def _preset_boxes(self):
         boxes = []
         for i in range(10):
             row = i // 5
             col = i % 5
-            boxes.append(pygame.Rect(self._rect.x + self.PAD + col * 30, self._rect.y + 242 + row * 22, 22, 18))
+            boxes.append(pygame.Rect(self._rect.x + self.PAD + col * 30, self._rect.y + 276 + row * 22, 22, 18))
         return boxes
 
     def _sv_rect(self):
-        return pygame.Rect(self._rect.x + self.PAD + 12, self._rect.y + 290, 120, 120)
+        return pygame.Rect(self._rect.x + self.PAD + 12, self._rect.y + 316, 120, 100)
 
     def _hue_rect(self):
-        return pygame.Rect(self._rect.x + self.PAD + 12, self._rect.y + 418, 120, 16)
+        return pygame.Rect(self._rect.x + self.PAD + 12, self._rect.y + 424, 120, 16)
 
     def _speed_box(self):
         return pygame.Rect(self._rect.x + 52, self._rect.y + 72, 48, 18)
@@ -575,7 +646,7 @@ class ContextMenu:
 
     def _text_box(self):
         if type(self._body).__name__ == "TextBody":
-            return pygame.Rect(self._rect.x + self.PAD, self._rect.y + 304, self.W - self.PAD*2, 44)
+            return pygame.Rect(self._rect.x + self.PAD, self._rect.y + 502, self.W - self.PAD*2, 44)
         return None
 
     # ── draw ────────────────────────────────────────────────────────────────────
@@ -632,6 +703,12 @@ class ContextMenu:
         _draw_toggle(surface, btn, self._body.fixed, btn.collidepoint(mouse_pos))
         surface.blit(self._font.render("Fixed", True, CM_TEXT_COLOR),
                      (r.x + self.PAD + 38, r.y + 73))
+                     
+        # Outline pill switch
+        outline_btn = self._outline_btn()
+        _draw_toggle(surface, outline_btn, self._body.show_outline, outline_btn.collidepoint(mouse_pos))
+        surface.blit(self._font.render("Outline", True, CM_TEXT_COLOR),
+                     (r.x + self.PAD + 100, r.y + 73))
 
         # Restitution
         surface.blit(self._font.render(
@@ -687,9 +764,12 @@ class ContextMenu:
         ts = self._font.render(disp_text, True, Colors.BLACK if self._layer_edit else CM_TEXT_COLOR)
         surface.blit(ts, (lbox.x + 3, lbox.y + 1), area=pygame.Rect(0, 0, lbox.width-6, lbox.height))
 
+        # Target toggle (Fill | Outline)
+        self._draw_target_toggle(surface, mouse_pos)
+
         # Color Label
         surface.blit(self._font.render("Color:", True, CM_TEXT_COLOR),
-                     (r.x + self.PAD, r.y + 209))
+                     (r.x + self.PAD, r.y + 243))
 
         # R Box
         rbox = self._r_box()
@@ -719,7 +799,7 @@ class ContextMenu:
         surface.blit(ts, (bbox.x + 3, bbox.y + 1), area=pygame.Rect(0, 0, bbox.width-6, bbox.height))
 
         # Presets
-        y = 208
+        y = 242
         boxes = self._preset_boxes()
         for i, r_box in enumerate(boxes):
             c = self._presets[i]
@@ -746,11 +826,36 @@ class ContextMenu:
         # Indicator for Hue
         hx = hue_r.x + int(self._hsv[0] * hue_r.width)
         pygame.draw.rect(surface, Colors.WHITE, (hx - 2, hue_r.y - 1, 4, hue_r.height + 2), 1, border_radius=1)
+        
+        # Alpha slider
+        alpha_r = self._alpha_rect()
+        pygame.draw.rect(surface, CM_BORDER, alpha_r, 1, border_radius=2)
+        # Fill alpha background
+        alpha_surf = pygame.Surface((alpha_r.width, alpha_r.height), pygame.SRCALPHA)
+        # Draw checkered pattern
+        for x in range(0, alpha_r.width, 4):
+            for y in range(0, alpha_r.height, 4):
+                if (x // 4 + y // 4) % 2 == 0:
+                    alpha_surf.fill((100, 100, 100), (x, y, 4, 4))
+                else:
+                    alpha_surf.fill((150, 150, 150), (x, y, 4, 4))
+        # Draw gradient
+        grad = pygame.Surface((alpha_r.width, alpha_r.height), pygame.SRCALPHA)
+        c = self._get_active_color()
+        for x in range(alpha_r.width):
+            alpha_val = int((x / alpha_r.width) * 255)
+            pygame.draw.line(grad, (*c[:3], alpha_val), (x, 0), (x, alpha_r.height))
+        alpha_surf.blit(grad, (0, 0))
+        surface.blit(alpha_surf, alpha_r)
+        
+        # Indicator for Alpha
+        ax = alpha_r.x + int(self._alpha_val * alpha_r.width)
+        pygame.draw.rect(surface, Colors.WHITE, (ax - 2, alpha_r.y - 1, 4, alpha_r.height + 2), 1, border_radius=1)
 
         # Text input box
         if type(self._body).__name__ == "TextBody":
             surface.blit(self._font.render("Text:", True, CM_TEXT_COLOR),
-                         (r.x + self.PAD, r.y + 444))
+                         (r.x + self.PAD, r.y + 478))
             t_box = self._text_box()
             pygame.draw.rect(surface, Colors.WHITE if self._text_edit else CM_BTN_BG, t_box, border_radius=2)
             pygame.draw.rect(surface, CM_ACCENT if self._text_edit else CM_BORDER, t_box, 1, border_radius=2)
