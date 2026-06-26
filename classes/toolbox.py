@@ -259,6 +259,9 @@ class Toolbox:
         self._checkboxes.append(Checkbox('show_com', 'Show CoM',
                                           pygame.Rect(self.rect.x + pad, y, fw, 20), True))
         y += 24
+        self._checkboxes.append(Checkbox('show_motors', 'Show Motors',
+                                          pygame.Rect(self.rect.x + pad, y, fw, 20), True))
+        y += 24
         self._checkboxes.append(Checkbox('viz_all', 'Viz All Agents',
                                           pygame.Rect(self.rect.x + pad, y, fw, 20), False))
 

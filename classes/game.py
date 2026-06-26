@@ -33,6 +33,7 @@ class Game:
         self.sim_state = STOPPED
         self.show_grid = True
         self.show_com = True
+        self.show_motors = True
         self.viz_all = False
         self.fast_forward = False
         self.trainer_class = None
@@ -94,7 +95,7 @@ class Game:
         import math
         for j in reversed(self.joints):
             ax, ay = j.get_anchor_a()
-            if math.hypot(wx - ax, wy - ay) < max(10.0, 10.0 / self.camera.zoom):
+            if math.hypot(wx - ax, wy - ay) < max(5.0, 5.0 / self.camera.zoom):
                 return j
         return None
 
@@ -335,7 +336,13 @@ class Game:
             if fitness > best_fitness:
                 best_fitness = fitness
                 best_genome = genome
-                print(f"New best genome: {best_genome.fitness}")
+                
+                if not hasattr(self, 'all_time_best_fitness'):
+                    self.all_time_best_fitness = -float('inf')
+                    
+                if fitness > self.all_time_best_fitness:
+                    self.all_time_best_fitness = fitness
+                    print(f"New all-time best genome: {fitness}")
                 
         # 2. Visually replay the best genome of this generation
         if best_genome is not None:
@@ -585,6 +592,11 @@ class Game:
                 self.viz_all = not self.viz_all
                 for box in self.toolbox._checkboxes:
                     if box.name == 'viz_all': box.checked = self.viz_all
+                return
+            elif cb == 'show_motors':
+                self.show_motors = not self.show_motors
+                for box in self.toolbox._checkboxes:
+                    if box.name == 'show_motors': box.checked = self.show_motors
                 return
 
             act = self.toolbox.get_sim_action_at(pos)
@@ -1005,10 +1017,11 @@ class Game:
             b.draw(self.canvas, cam, ghost=is_resizing, show_com=self.show_com)
 
         # Joints
-        for j in self.joints:
-            j.draw(self.canvas, cam)
-            if self.ctx_menu.is_open and self.ctx_menu._body == j and j.limits_enabled:
-                j.draw_limits(self.canvas, cam)
+        if self.show_motors:
+            for j in self.joints:
+                j.draw(self.canvas, cam)
+                if self.ctx_menu.is_open and self.ctx_menu._body == j and j.limits_enabled:
+                    j.draw_limits(self.canvas, cam)
 
         # Selection outlines
         for b in self.selected:

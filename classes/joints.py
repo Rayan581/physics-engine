@@ -233,7 +233,7 @@ class MotorJoint:
         ax, ay = self.get_anchor_a()
         sx, sy = cam.w2s(ax, ay)
         
-        r = max(4, int(6 * cam.zoom))
+        r = max(1, int(6 * cam.zoom))
         color = MOTOR_ENABLED_COLOR if self.motor_enabled else MOTOR_DISABLED_COLOR
         
         pygame.draw.circle(surface, color, (int(sx), int(sy)), r, 2)
@@ -252,7 +252,7 @@ class MotorJoint:
             
         ax, ay = self.get_anchor_a()
         sx, sy = cam.w2s(ax, ay)
-        r = max(20, int(40 * cam.zoom))
+        r = max(1, int(40 * cam.zoom))
         
         angle_b = self.b.angle if self.b else 0.0
         base_angle = angle_b - self.ref_angle

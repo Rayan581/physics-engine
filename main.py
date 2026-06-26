@@ -2,7 +2,6 @@ import time
 
 print("Starting physics engine...")
 start = time.time()
-
 from classes.game import Game
 if __name__ == "__main__":
     game = Game()
