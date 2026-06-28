@@ -201,11 +201,32 @@ class Game:
                 from classes.ai import BaseTrainer
                 for name in dir(ai_module):
                     obj = getattr(ai_module, name)
-                    if isinstance(obj, type) and issubclass(obj, BaseTrainer) and obj is not BaseTrainer:
-                        self.trainer_class = obj
-                        self._start_training()
-                        break
+                    if isinstance(obj, type):
+                        if (issubclass(obj, BaseTrainer) and obj is not BaseTrainer) or getattr(obj, 'is_ppo', False):
+                            self.trainer_class = obj
+                            self.ai_module = ai_module
+                            self._start_training()
+                            break
         elif action == 'run_ai':
+            if not getattr(self, 'trainer_class', None):
+                # Prompt user to select the AI environment script first
+                from classes.serialization import get_script_path
+                import importlib.util
+                path = get_script_path()
+                if path:
+                    spec = importlib.util.spec_from_file_location("ai_plugin", path)
+                    ai_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(ai_module)
+                    
+                    from classes.ai import BaseTrainer
+                    for name in dir(ai_module):
+                        obj = getattr(ai_module, name)
+                        if isinstance(obj, type):
+                            if (issubclass(obj, BaseTrainer) and obj is not BaseTrainer) or getattr(obj, 'is_ppo', False):
+                                self.trainer_class = obj
+                                self.ai_module = ai_module
+                                break
+            
             if getattr(self, 'trainer_class', None):
                 self._start_ai_playback()
 
@@ -214,6 +235,11 @@ class Game:
     def _start_training(self):
         self.sim_state = 'training'
         self.fast_forward = False
+        
+        if getattr(self.trainer_class, 'is_ppo', False):
+            self._start_ppo_training()
+            return
+            
         import neat
         import pickle
         try:
@@ -275,6 +301,46 @@ class Game:
             else:
                 print("Training aborted by user.")
         self._stop()
+    def _start_ppo_training(self):
+        try:
+            from stable_baselines3 import PPO
+            import os
+            
+            env = self.trainer_class(game_instance=self)
+            
+            if os.path.exists("ppo_best_model.zip"):
+                print("Loading existing PPO model...")
+                model = PPO.load("ppo_best_model", env=env)
+                env.total_steps = model.num_timesteps
+            else:
+                model = PPO("MlpPolicy", env, verbose=1, learning_rate=3e-4, batch_size=64)
+                
+            print("Starting PPO Training...")
+            
+            # Fetch callback if it exists
+            callback = None
+            if hasattr(self, 'ai_module') and hasattr(self.ai_module, 'RenderCallback'):
+                # Start rendering at the NEXT 30k interval, relative to the current timestep!
+                next_interval = ((env.total_steps // 30_000) + 1) * 30_000
+                callback = self.ai_module.RenderCallback(render_freq=30_000)
+                callback.next_render_step = next_interval
+                
+            model.learn(total_timesteps=300_000, callback=callback, reset_num_timesteps=False)
+            model.save("ppo_best_model")
+            print("PPO Training finished! Saved to ppo_best_model.zip")
+            
+        except Exception as e:
+            if str(e) == "Aborted":
+                print("PPO Training aborted by user.")
+                try: model.save("ppo_best_model")
+                except: pass
+            else:
+                print(f"PPO Training error: {e}")
+        except KeyboardInterrupt:
+            print("PPO Training aborted via terminal.")
+            try: model.save("ppo_best_model")
+            except: pass
+        self._stop()
         
     def _eval_genomes(self, genomes, config):
         import neat
@@ -310,18 +376,28 @@ class Game:
                                 raise Exception("Aborted")
                             elif ev.key == pygame.K_f:
                                 self.fast_forward = not self.fast_forward
+                                if self.fast_forward:
+                                    self.canvas.fill(CANVAS_BG)
+                                    self._draw_training_hud(generation, gi, total, best_fitness)
+                                    pygame.display.flip()
                     
-                    # Draw live training HUD
-                    self.canvas.fill(CANVAS_BG)
-                    if self.viz_all:
-                        self._draw()
-                        target = trainer.get_camera_target()
-                        if target:
-                            self.camera.cam_x += (target[0] - self.camera.cam_x) * 5.0 * (20.0 / FPS)
-                            self.camera.cam_y += (target[1] - self.camera.cam_y) * 5.0 * (20.0 / FPS)
-                    
-                    self._draw_training_hud(generation, gi, total, best_fitness)
-                    pygame.display.flip()
+                    if not self.fast_forward:
+                        # Draw live training HUD
+                        self.canvas.fill(CANVAS_BG)
+                        if self.viz_all:
+                            self._draw()
+                            target = trainer.get_camera_target()
+                            if target:
+                                self.camera.cam_x += (target[0] - self.camera.cam_x) * 5.0 * (20.0 / FPS)
+                                self.camera.cam_y += (target[1] - self.camera.cam_y) * 5.0 * (20.0 / FPS)
+                        
+                        self._draw_training_hud(generation, gi, total, best_fitness)
+                        pygame.display.flip()
+                    elif step == 0 and gi % max(1, total // 10) == 0:
+                        # Keep HUD updated occasionally during fast forward
+                        self.canvas.fill(CANVAS_BG)
+                        self._draw_training_hud(generation, gi, total, best_fitness)
+                        pygame.display.flip()
 
                 obs = trainer.get_observation()
                 action = net.activate(obs)
@@ -400,6 +476,25 @@ class Game:
                             break
 
     def _start_ai_playback(self):
+        if getattr(self.trainer_class, 'is_ppo', False):
+            from stable_baselines3 import PPO
+            import os
+            try:
+                self.trainer = self.trainer_class(game_instance=self)
+                if os.path.exists("ppo_best_model.zip"):
+                    self.ai_net = PPO.load("ppo_best_model", env=self.trainer)
+                else:
+                    print("No ppo_best_model.zip found!")
+                    return
+                for b in self.bodies: b.reset()
+                self.sim_state = 'ai_playing'
+                self.ctx_menu.close()
+                self.selected.clear()
+            except Exception as e:
+                print("Failed to load PPO AI:", e)
+                self._stop()
+            return
+            
         import pickle
         import neat
         try:
@@ -435,25 +530,37 @@ class Game:
             if self.sim_state == PLAYING:
                 self._physics_step(dt)
             elif self.sim_state == 'ai_playing':
-                obs = self.trainer.get_observation()
-                action = self.ai_net.activate(obs)
-                self._ai_last_obs    = obs
-                self._ai_last_action = action
-                self.trainer.apply_action(action)
-                self._physics_step(dt)
-                
-                target = self.trainer.get_camera_target()
-                if target:
-                    self.camera.cam_x += (target[0] - self.camera.cam_x) * 5.0 * dt
-                    self.camera.cam_y += (target[1] - self.camera.cam_y) * 5.0 * dt
+                if getattr(self.trainer_class, 'is_ppo', False):
+                    if not hasattr(self, '_ppo_obs'):
+                        self._ppo_obs, _ = self.trainer.reset()
+                    action, _ = self.ai_net.predict(self._ppo_obs, deterministic=True)
+                    self._ppo_obs, reward, terminated, truncated, _ = self.trainer.step(action)
                     
-                is_done, _ = self.trainer.check_status()
-                if is_done:
-                    self._stop()
+                    self.camera.cam_x += (self.trainer.cart.x - self.camera.cam_x) * 5.0 * dt
+                    self.camera.cam_y += (self.trainer.cart.y - self.camera.cam_y) * 5.0 * dt
+                    
+                    if terminated or truncated:
+                        self._ppo_obs, _ = self.trainer.reset()
+                else:
+                    obs = self.trainer.get_observation()
+                    action = self.ai_net.activate(obs)
+                    self._ai_last_obs    = obs
+                    self._ai_last_action = action
+                    self.trainer.apply_action(action)
+                    self._physics_step(dt)
+                    
+                    target = self.trainer.get_camera_target()
+                    if target:
+                        self.camera.cam_x += (target[0] - self.camera.cam_x) * 5.0 * dt
+                        self.camera.cam_y += (target[1] - self.camera.cam_y) * 5.0 * dt
+                        
+                    is_done, _ = self.trainer.check_status()
+                    if is_done:
+                        self._stop()
                     
             self.canvas.fill(CANVAS_BG)
             self._draw()
-            if self.sim_state == 'ai_playing' and hasattr(self, 'ai_net') and hasattr(self, 'trainer'):
+            if self.sim_state == 'ai_playing' and hasattr(self, 'ai_net') and hasattr(self, 'trainer') and not getattr(self.trainer_class, 'is_ppo', False):
                 import neat
                 config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                      neat.DefaultSpeciesSet, neat.DefaultStagnation,
