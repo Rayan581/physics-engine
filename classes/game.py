@@ -336,7 +336,8 @@ class Game:
                 callback = self.ai_module.RenderCallback(render_freq=30_000)
                 callback.next_render_step = next_interval
                 
-            model.learn(total_timesteps=300_000, callback=callback, reset_num_timesteps=False)
+            target_steps = getattr(env, 'target_total_steps', 300_000)
+            model.learn(total_timesteps=target_steps, callback=callback, reset_num_timesteps=False)
             model.save(model_name)
             print(f"{alg_name} Training finished! Saved to {model_name}.zip")
             

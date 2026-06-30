@@ -1,0 +1,267 @@
+{
+  "bodies": [
+    {
+      "type": "RectBody",
+      "name": "ground_rod",
+      "x": -170.0,
+      "y": -105.0,
+      "vx": 0.0,
+      "vy": 0.0,
+      "angle": 0.0,
+      "angular_velocity": 0.0,
+      "mass": 1.0,
+      "restitution": 0.5,
+      "fixed": true,
+      "layers": [
+        "Default"
+      ],
+      "color": [
+        50,
+        50,
+        50
+      ],
+      "alpha": 255,
+      "show_outline": false,
+      "outline_color": [
+        40,
+        30,
+        20
+      ],
+      "_init": {
+        "x": -170.0,
+        "y": -105.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "angle": 0.0,
+        "av": 0.0
+      },
+      "width": 200.0,
+      "height": 10.0,
+      "id": "17823981179921520"
+    },
+    {
+      "type": "RectBody",
+      "name": "wall",
+      "x": -265.0,
+      "y": -110.0,
+      "vx": 0.0,
+      "vy": 0.0,
+      "angle": 0.0,
+      "angular_velocity": 0.0,
+      "mass": 1.0,
+      "restitution": 0.5,
+      "fixed": true,
+      "layers": [
+        "Default",
+        "wall"
+      ],
+      "color": [
+        50,
+        50,
+        50
+      ],
+      "alpha": 255,
+      "show_outline": false,
+      "outline_color": [
+        40,
+        30,
+        20
+      ],
+      "_init": {
+        "x": -265.0,
+        "y": -110.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "angle": 0.0,
+        "av": 0.0
+      },
+      "width": 10.0,
+      "height": 20.0,
+      "id": "17823981179921792"
+    },
+    {
+      "type": "RectBody",
+      "name": "wall",
+      "x": -75.0,
+      "y": -110.0,
+      "vx": 0.0,
+      "vy": 0.0,
+      "angle": 0.0,
+      "angular_velocity": 0.0,
+      "mass": 1.0,
+      "restitution": 0.5,
+      "fixed": true,
+      "layers": [
+        "Default",
+        "wall"
+      ],
+      "color": [
+        50,
+        50,
+        50
+      ],
+      "alpha": 255,
+      "show_outline": false,
+      "outline_color": [
+        40,
+        30,
+        20
+      ],
+      "_init": {
+        "x": -75.0,
+        "y": -110.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "angle": 0.0,
+        "av": 0.0
+      },
+      "width": 10.0,
+      "height": 20.0,
+      "id": "17823981179922112"
+    },
+    {
+      "type": "RectBody",
+      "name": "cart",
+      "x": -170.0,
+      "y": -110.0,
+      "vx": 0.0,
+      "vy": 0.0,
+      "angle": 0.0,
+      "angular_velocity": 0.0,
+      "mass": 1.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "layers": [
+        "cart",
+        "wall"
+      ],
+      "color": [
+        255,
+        145,
+        0
+      ],
+      "alpha": 255,
+      "show_outline": true,
+      "outline_color": [
+        40,
+        30,
+        20
+      ],
+      "_init": {
+        "x": -170.0,
+        "y": -110.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "angle": 0.0,
+        "av": 0.0
+      },
+      "width": 20.0,
+      "height": 20.0,
+      "id": "17823981179925376"
+    },
+    {
+      "type": "RectBody",
+      "name": "",
+      "x": -170.0,
+      "y": -95.0,
+      "vx": 0.0,
+      "vy": 0.0,
+      "angle": 0.0,
+      "angular_velocity": 0.0,
+      "mass": 1.0,
+      "restitution": 0.5,
+      "fixed": true,
+      "layers": [
+        "cart"
+      ],
+      "color": [
+        210,
+        195,
+        175
+      ],
+      "alpha": 0,
+      "show_outline": false,
+      "outline_color": [
+        40,
+        30,
+        20
+      ],
+      "_init": {
+        "x": -170.0,
+        "y": -95.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "angle": 0.0,
+        "av": 0.0
+      },
+      "width": 200.0,
+      "height": 10.0,
+      "id": "17823981179924080"
+    },
+    {
+      "type": "RectBody",
+      "name": "pendulum_rod",
+      "x": -170.0,
+      "y": -140.0,
+      "vx": 0.0,
+      "vy": 0.0,
+      "angle": 0.0,
+      "angular_velocity": 0.0,
+      "mass": 1.0,
+      "restitution": 0.5,
+      "fixed": false,
+      "layers": [
+        "NULL"
+      ],
+      "color": [
+        210,
+        195,
+        175
+      ],
+      "alpha": 255,
+      "show_outline": true,
+      "outline_color": [
+        40,
+        30,
+        20
+      ],
+      "_init": {
+        "x": -170.0,
+        "y": -140.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "angle": 0.0,
+        "av": 0.0
+      },
+      "width": 3.0,
+      "height": 60.0,
+      "id": "17823981179928848"
+    }
+  ],
+  "joints": [
+    {
+      "local_a": [
+        0.0,
+        30.0
+      ],
+      "local_b": [
+        0.0,
+        0.0
+      ],
+      "ref_angle": 0.0,
+      "motor_enabled": false,
+      "motor_speed": 1.0,
+      "motor_torque": 100000.0,
+      "limits_enabled": false,
+      "min_angle": -0.7853981633974483,
+      "max_angle": 0.7853981633974483,
+      "body_a": "17823981179928848",
+      "body_b": "17823981179925376"
+    }
+  ],
+  "camera": {
+    "x": -171.30853692371358,
+    "y": -139.9840674432867,
+    "zoom": 3.7593703992309284
+  }
+}
