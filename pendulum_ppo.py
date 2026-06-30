@@ -108,7 +108,8 @@ class PendulumPPOTrainer(BaseTrainer, gym.Env):
             current_time = time.time()
             if current_time - getattr(self, '_last_ui_update', 0) > (1.0 / 60.0):
                 self._last_ui_update = current_time
-                for ev in pygame.event.get():
+                events = pygame.event.get()
+                for ev in events:
                     if ev.type == pygame.QUIT:
                         self.game.running = False
                         raise Exception("Aborted")
@@ -117,6 +118,16 @@ class PendulumPPOTrainer(BaseTrainer, gym.Env):
                             raise Exception("Aborted")
                         elif ev.key == pygame.K_f:
                             self.game.fast_forward = not getattr(self.game, 'fast_forward', False)
+                    elif ev.type == pygame.MOUSEBUTTONDOWN:
+                        if ev.button == 1: self.game._lmb_down(ev.pos)
+                        elif ev.button == 3: self.game._rmb_down(ev.pos)
+                        elif ev.button == 4: self.game._scroll(ev.pos, 1.15)
+                        elif ev.button == 5: self.game._scroll(ev.pos, 1/1.15)
+                    elif ev.type == pygame.MOUSEBUTTONUP:
+                        if ev.button == 1: self.game._lmb_up(ev.pos)
+                        elif ev.button == 3: self.game._rmb_up(ev.pos)
+                    elif ev.type == pygame.MOUSEMOTION:
+                        self.game._motion(ev.pos)
 
                 if getattr(self.game, 'fast_forward', False):
                     self.game.canvas.fill(CANVAS_BG)
@@ -130,6 +141,9 @@ class PendulumPPOTrainer(BaseTrainer, gym.Env):
                         self.game.camera.cam_y += (self.cart.y - self.game.camera.cam_y) * 5.0 * (1.0 / FPS)
                     self._draw_hud(0)
                     pygame.display.flip()
+
+            if self.game.sim_state != 'training':
+                raise Exception("Aborted")
 
         self._apply(action)
         self.game._physics_step(1.0 / FPS)
@@ -253,12 +267,23 @@ class RenderCallback(BaseCallback):
             done = terminated or truncated
             
             # Manual render and event pump for the callback
-            for ev in pygame.event.get():
+            events = pygame.event.get()
+            for ev in events:
                 if ev.type == pygame.QUIT:
                     game.running = False
                     raise Exception("Aborted")
                 elif ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
                     raise Exception("Aborted")
+                elif ev.type == pygame.MOUSEBUTTONDOWN:
+                    if ev.button == 1: game._lmb_down(ev.pos)
+                    elif ev.button == 3: game._rmb_down(ev.pos)
+                    elif ev.button == 4: game._scroll(ev.pos, 1.15)
+                    elif ev.button == 5: game._scroll(ev.pos, 1/1.15)
+                elif ev.type == pygame.MOUSEBUTTONUP:
+                    if ev.button == 1: game._lmb_up(ev.pos)
+                    elif ev.button == 3: game._rmb_up(ev.pos)
+                elif ev.type == pygame.MOUSEMOTION:
+                    game._motion(ev.pos)
                     
             game.canvas.fill(CANVAS_BG)
             game._draw()

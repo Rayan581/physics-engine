@@ -561,8 +561,8 @@ class Game:
                         self.camera.cam_x += (target[0] - self.camera.cam_x) * 5.0 * dt
                         self.camera.cam_y += (target[1] - self.camera.cam_y) * 5.0 * dt
                     
-                    if terminated or truncated:
-                        self._ppo_obs, _ = self.trainer.reset()
+                    # During interactive AI playback, we ignore terminated/truncated 
+                    # so the user can continuously test the agent without it resetting.
                 else:
                     obs = self.trainer.get_observation()
                     action = self.ai_net.activate(obs)
@@ -576,9 +576,7 @@ class Game:
                         self.camera.cam_x += (target[0] - self.camera.cam_x) * 5.0 * dt
                         self.camera.cam_y += (target[1] - self.camera.cam_y) * 5.0 * dt
                         
-                    is_done, _ = self.trainer.check_status()
-                    if is_done:
-                        self._stop()
+                    # Ignore is_done during interactive playback for continuous testing
                     
             self.canvas.fill(CANVAS_BG)
             self._draw()
@@ -750,8 +748,7 @@ class Game:
                 self.ctx_menu.close()
             return
 
-        if self.sim_state == PLAYING:
-            return
+        # Remove PLAYING restriction to allow dragging while physics runs
 
         cp = self._canvas_pos(pos)
         raw_wp = self.camera.s2w(*cp)
