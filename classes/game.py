@@ -202,7 +202,8 @@ class Game:
                 for name in dir(ai_module):
                     obj = getattr(ai_module, name)
                     if isinstance(obj, type):
-                        if (issubclass(obj, BaseTrainer) and obj is not BaseTrainer) or getattr(obj, 'is_ppo', False):
+                        is_sb3 = getattr(obj, 'is_sb3', False) or getattr(obj, 'is_ppo', False)
+                        if (issubclass(obj, BaseTrainer) and obj is not BaseTrainer) or is_sb3:
                             self.trainer_class = obj
                             self.ai_module = ai_module
                             self._start_training()
@@ -222,7 +223,8 @@ class Game:
                     for name in dir(ai_module):
                         obj = getattr(ai_module, name)
                         if isinstance(obj, type):
-                            if (issubclass(obj, BaseTrainer) and obj is not BaseTrainer) or getattr(obj, 'is_ppo', False):
+                            is_sb3 = getattr(obj, 'is_sb3', False) or getattr(obj, 'is_ppo', False)
+                            if (issubclass(obj, BaseTrainer) and obj is not BaseTrainer) or is_sb3:
                                 self.trainer_class = obj
                                 self.ai_module = ai_module
                                 break
@@ -236,8 +238,9 @@ class Game:
         self.sim_state = 'training'
         self.fast_forward = False
         
-        if getattr(self.trainer_class, 'is_ppo', False):
-            self._start_ppo_training()
+        is_sb3 = getattr(self.trainer_class, 'is_sb3', False) or getattr(self.trainer_class, 'is_ppo', False)
+        if is_sb3:
+            self._start_sb3_training()
             return
             
         import neat
@@ -301,21 +304,29 @@ class Game:
             else:
                 print("Training aborted by user.")
         self._stop()
-    def _start_ppo_training(self):
+    def _start_sb3_training(self):
         try:
-            from stable_baselines3 import PPO
+            alg_name = getattr(self.trainer_class, 'algorithm', 'PPO')
+            if alg_name == 'SAC':
+                from stable_baselines3 import SAC as Algorithm
+                kwargs = dict(learning_rate=3e-4, batch_size=256)
+            else:
+                from stable_baselines3 import PPO as Algorithm
+                kwargs = dict(learning_rate=3e-4, batch_size=64)
+                
+            model_name = f"{alg_name.lower()}_best_model"
             import os
             
             env = self.trainer_class(game_instance=self)
             
-            if os.path.exists("ppo_best_model.zip"):
-                print("Loading existing PPO model...")
-                model = PPO.load("ppo_best_model", env=env)
+            if os.path.exists(f"{model_name}.zip"):
+                print(f"Loading existing {alg_name} model...")
+                model = Algorithm.load(model_name, env=env)
                 env.total_steps = model.num_timesteps
             else:
-                model = PPO("MlpPolicy", env, verbose=1, learning_rate=3e-4, batch_size=64)
+                model = Algorithm("MlpPolicy", env, verbose=1, **kwargs)
                 
-            print("Starting PPO Training...")
+            print(f"Starting {alg_name} Training...")
             
             # Fetch callback if it exists
             callback = None
@@ -326,19 +337,19 @@ class Game:
                 callback.next_render_step = next_interval
                 
             model.learn(total_timesteps=300_000, callback=callback, reset_num_timesteps=False)
-            model.save("ppo_best_model")
-            print("PPO Training finished! Saved to ppo_best_model.zip")
+            model.save(model_name)
+            print(f"{alg_name} Training finished! Saved to {model_name}.zip")
             
         except Exception as e:
             if str(e) == "Aborted":
-                print("PPO Training aborted by user.")
-                try: model.save("ppo_best_model")
+                print(f"{alg_name} Training aborted by user.")
+                try: model.save(model_name)
                 except: pass
             else:
-                print(f"PPO Training error: {e}")
+                print(f"{alg_name} Training error: {e}")
         except KeyboardInterrupt:
-            print("PPO Training aborted via terminal.")
-            try: model.save("ppo_best_model")
+            print(f"{alg_name} Training aborted via terminal.")
+            try: model.save(model_name)
             except: pass
         self._stop()
         
@@ -476,22 +487,29 @@ class Game:
                             break
 
     def _start_ai_playback(self):
-        if getattr(self.trainer_class, 'is_ppo', False):
-            from stable_baselines3 import PPO
+        is_sb3 = getattr(self.trainer_class, 'is_sb3', False) or getattr(self.trainer_class, 'is_ppo', False)
+        if is_sb3:
+            alg_name = getattr(self.trainer_class, 'algorithm', 'PPO')
+            if alg_name == 'SAC':
+                from stable_baselines3 import SAC as Algorithm
+            else:
+                from stable_baselines3 import PPO as Algorithm
+                
+            model_name = f"{alg_name.lower()}_best_model"
             import os
             try:
                 self.trainer = self.trainer_class(game_instance=self)
-                if os.path.exists("ppo_best_model.zip"):
-                    self.ai_net = PPO.load("ppo_best_model", env=self.trainer)
+                if os.path.exists(f"{model_name}.zip"):
+                    self.ai_net = Algorithm.load(model_name, env=self.trainer)
                 else:
-                    print("No ppo_best_model.zip found!")
+                    print(f"No {model_name}.zip found!")
                     return
                 for b in self.bodies: b.reset()
                 self.sim_state = 'ai_playing'
                 self.ctx_menu.close()
                 self.selected.clear()
             except Exception as e:
-                print("Failed to load PPO AI:", e)
+                print(f"Failed to load {alg_name} AI:", e)
                 self._stop()
             return
             
@@ -530,14 +548,17 @@ class Game:
             if self.sim_state == PLAYING:
                 self._physics_step(dt)
             elif self.sim_state == 'ai_playing':
-                if getattr(self.trainer_class, 'is_ppo', False):
+                is_sb3 = getattr(self.trainer_class, 'is_sb3', False) or getattr(self.trainer_class, 'is_ppo', False)
+                if is_sb3:
                     if not hasattr(self, '_ppo_obs'):
                         self._ppo_obs, _ = self.trainer.reset()
                     action, _ = self.ai_net.predict(self._ppo_obs, deterministic=True)
                     self._ppo_obs, reward, terminated, truncated, _ = self.trainer.step(action)
                     
-                    self.camera.cam_x += (self.trainer.cart.x - self.camera.cam_x) * 5.0 * dt
-                    self.camera.cam_y += (self.trainer.cart.y - self.camera.cam_y) * 5.0 * dt
+                    target = self.trainer.get_camera_target()
+                    if target:
+                        self.camera.cam_x += (target[0] - self.camera.cam_x) * 5.0 * dt
+                        self.camera.cam_y += (target[1] - self.camera.cam_y) * 5.0 * dt
                     
                     if terminated or truncated:
                         self._ppo_obs, _ = self.trainer.reset()
@@ -560,7 +581,8 @@ class Game:
                     
             self.canvas.fill(CANVAS_BG)
             self._draw()
-            if self.sim_state == 'ai_playing' and hasattr(self, 'ai_net') and hasattr(self, 'trainer') and not getattr(self.trainer_class, 'is_ppo', False):
+            is_sb3_rendering = getattr(self.trainer_class, 'is_sb3', False) or getattr(self.trainer_class, 'is_ppo', False)
+            if self.sim_state == 'ai_playing' and hasattr(self, 'ai_net') and hasattr(self, 'trainer') and not is_sb3_rendering:
                 import neat
                 config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                      neat.DefaultSpeciesSet, neat.DefaultStagnation,
