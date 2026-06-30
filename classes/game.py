@@ -59,6 +59,8 @@ class Game:
         self._rd_down_s  = None      # screen pos of RMB down (canvas)
         self._rd_last_s  = None
         self._rd_moved   = False
+        self.magnetic_radius = 100
+        self.magnetic_enabled = False
 
     # ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -112,6 +114,63 @@ class Game:
     # ── physics ─────────────────────────────────────────────────────────────────
 
     def _physics_step(self, dt: float):
+        # Apply magnetic repulsion from cursor
+        m_pos = pygame.mouse.get_pos()
+        cp = self._canvas_pos(m_pos)
+        m_world = self.camera.s2w(*cp)
+        
+        import math
+        
+        if getattr(self, 'magnetic_enabled', False):
+            for body in self.bodies:
+                if getattr(body, 'fixed', False): continue
+                
+                hw = getattr(body, 'width', 20.0) / 2.0
+                hh = getattr(body, 'height', 20.0) / 2.0
+                
+                # Transform mouse to body's local space
+                mx = m_world[0] - body.x
+                my = m_world[1] - body.y
+                ca, sa = math.cos(-body.angle), math.sin(-body.angle)
+                lx = mx * ca - my * sa
+                ly = mx * sa + my * ca
+                
+                # Find closest point on the AABB
+                cx = max(-hw, min(hw, lx))
+                cy = max(-hh, min(hh, ly))
+                
+                # Transform closest point back to world space
+                ca2, sa2 = math.cos(body.angle), math.sin(body.angle)
+                closest_x = body.x + cx * ca2 - cy * sa2
+                closest_y = body.y + cx * sa2 + cy * ca2
+                
+                dist = math.hypot(m_world[0] - closest_x, m_world[1] - closest_y)
+                
+                if dist < self.magnetic_radius:
+                    # Apply a strong repelling force
+                    force = (self.magnetic_radius - dist) * 8.0
+                    
+                    # Push vector: from mouse to the closest point
+                    push_dx = closest_x - m_world[0]
+                    push_dy = closest_y - m_world[1]
+                    push_dist = math.hypot(push_dx, push_dy)
+                    
+                    if push_dist > 0:
+                        fx = (push_dx / push_dist) * force
+                        fy = (push_dy / push_dist) * force
+                        
+                        # Apply linear velocity
+                        body.vx += fx
+                        body.vy += fy
+                        
+                        # Apply angular velocity (Torque = r x F)
+                        rx = closest_x - body.x
+                        ry = closest_y - body.y
+                        torque = rx * fy - ry * fx
+                        
+                        inv_inertia = getattr(body, 'inv_inertia', 0.0)
+                        body.angular_velocity += torque * inv_inertia
+
         sub = dt / PHYSICS_SUBSTEPS
         for _ in range(PHYSICS_SUBSTEPS):
             for body in self.bodies:
@@ -684,8 +743,11 @@ class Game:
             self.drawing.set_mode(None if self.drawing.mode=='circle'  else 'circle')
         elif k == pygame.K_p and self.sim_state == STOPPED:
             self.drawing.set_mode(None if self.drawing.mode=='polygon' else 'polygon')
-        elif k == pygame.K_m and self.sim_state == STOPPED:
-            self.drawing.set_mode(None if self.drawing.mode=='motor' else 'motor')
+        elif k == pygame.K_m:
+            if self.sim_state == STOPPED:
+                self.drawing.set_mode(None if self.drawing.mode=='motor' else 'motor')
+            else:
+                self.magnetic_enabled = not getattr(self, 'magnetic_enabled', False)
         elif k == pygame.K_t and self.sim_state == STOPPED:
             self.drawing.set_mode(None if self.drawing.mode=='text' else 'text')
         elif k in (pygame.K_DELETE, pygame.K_BACKSPACE) and self.sim_state == STOPPED:
@@ -869,8 +931,14 @@ class Game:
 
     def _scroll(self, pos, factor):
         if self.toolbox.contains(pos): return
-        cp = self._canvas_pos(pos)
-        self.camera.zoom_at(cp[0], cp[1], factor)
+        
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]:
+            self.magnetic_radius *= factor
+            self.magnetic_radius = max(10.0, min(self.magnetic_radius, 800.0))
+        else:
+            cp = self._canvas_pos(pos)
+            self.camera.zoom_at(cp[0], cp[1], factor)
 
     # ── motion ──────────────────────────────────────────────────────────────────
 
@@ -1137,6 +1205,12 @@ class Game:
         
         if self.show_grid:
             self._draw_grid(cam)
+
+        # Draw magnetic cursor radius
+        if getattr(self, 'magnetic_enabled', False):
+            m_pos = pygame.mouse.get_pos()
+            cp = self._canvas_pos(m_pos)
+            pygame.draw.circle(self.canvas, (100, 200, 255), cp, int(self.magnetic_radius * cam.zoom), 1)
 
         # Bodies
         for b in self.bodies:

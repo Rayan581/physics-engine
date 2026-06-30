@@ -118,6 +118,8 @@ class PendulumPPOTrainer(BaseTrainer, gym.Env):
                             raise Exception("Aborted")
                         elif ev.key == pygame.K_f:
                             self.game.fast_forward = not getattr(self.game, 'fast_forward', False)
+                        elif ev.key == pygame.K_m:
+                            self.game.magnetic_enabled = not getattr(self.game, 'magnetic_enabled', False)
                     elif ev.type == pygame.MOUSEBUTTONDOWN:
                         if ev.button == 1: self.game._lmb_down(ev.pos)
                         elif ev.button == 3: self.game._rmb_down(ev.pos)
