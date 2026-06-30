@@ -62,6 +62,7 @@ Start the engine by running:
 python main.py
 ```
 - **Camera Controls**: Right-click and drag anywhere on the canvas to pan. Use the scroll wheel to zoom in and out.
+- **Magnetic Cursor**: Press **`M`** while running to toggle a physics-accurate magnetic repelling field at your cursor. Hold **`SHIFT`** and scroll to dynamically adjust the radius. Great for pushing objects and testing AI stability!
 - **Adding Objects**: Use the toolbar on the left to select a shape (Rect, Circle, Poly). Click (or click-and-drag) on the canvas to instantiate it.
 - **Editing Objects**: Right-click on any physics body to open its context menu and edit properties like `fixed` (static), mass, or color.
 - **Motor Joints**: Select the Motor tool and click where two bodies overlap to connect them.
