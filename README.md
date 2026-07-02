@@ -52,7 +52,7 @@ Ensure you have Python 3.10+ installed.
    ```bash
    pip install pygame-ce numpy gymnasium stable-baselines3
    ```
-   *(Note: `pygame-ce` is the Community Edition of Pygame, offering superior performance and modern features).*
+   *(Note: `pygame-ce` is the Community Edition of Pygame, offering superior performance and modern features. You may install pygame instead of pygame-ce).* 
 
 ## Usage Instructions
 
