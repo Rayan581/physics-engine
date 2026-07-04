@@ -729,8 +729,23 @@ class Game:
             elif ev.type == pygame.MOUSEMOTION:
                 self._motion(ev.pos)
 
+    def _is_key_bound(self, key_name):
+        for b in self.bodies:
+            if key_name in (getattr(b, 'ctrl_up', None), getattr(b, 'ctrl_down', None), 
+                            getattr(b, 'ctrl_left', None), getattr(b, 'ctrl_right', None)): 
+                return True
+        for j in self.joints:
+            if key_name in (getattr(j, 'ctrl_cw', None), getattr(j, 'ctrl_ccw', None)): 
+                return True
+        return False
+
     def _key(self, ev):
         k = ev.key
+        
+        # If key is bound to a control, ignore hotkeys (except ESC)
+        if k != pygame.K_ESCAPE and self._is_key_bound(pygame.key.name(k)):
+            return
+            
         mods = pygame.key.get_mods()
         ctrl = bool(mods & pygame.KMOD_CTRL)
 
