@@ -171,8 +171,17 @@ class Game:
                         inv_inertia = getattr(body, 'inv_inertia', 0.0)
                         body.angular_velocity += torque * inv_inertia
 
-        sub = dt / PHYSICS_SUBSTEPS
-        for _ in range(PHYSICS_SUBSTEPS):
+        # During fast-forward AI training, allow trainers to reduce substeps for speed.
+        # The active trainer can declare fast_forward_substeps as a class attribute.
+        ff = getattr(self, 'fast_forward', False)
+        trainer_cls = getattr(self, 'trainer_class', None)
+        if ff and trainer_cls:
+            substeps = getattr(trainer_cls, 'fast_forward_substeps', PHYSICS_SUBSTEPS)
+        else:
+            substeps = PHYSICS_SUBSTEPS
+
+        sub = dt / substeps
+        for _ in range(substeps):
             for body in self.bodies:
                 body.integrate(sub)
                 
@@ -372,8 +381,11 @@ class Game:
             else:
                 from stable_baselines3 import PPO as Algorithm
                 kwargs = dict(learning_rate=3e-4, batch_size=64)
-                
-            model_name = f"{alg_name.lower()}_best_model"
+
+            # Allow each trainer to override/extend algorithm hyperparameters
+            kwargs.update(getattr(self.trainer_class, 'algorithm_kwargs', {}))
+
+            model_name = getattr(self.trainer_class, 'model_name', f"{alg_name.lower()}_best_model")
             import os
             
             env = self.trainer_class(game_instance=self)
@@ -555,7 +567,7 @@ class Game:
             else:
                 from stable_baselines3 import PPO as Algorithm
                 
-            model_name = f"{alg_name.lower()}_best_model"
+            model_name = getattr(self.trainer_class, 'model_name', f"{alg_name.lower()}_best_model")
             import os
             try:
                 self.trainer = self.trainer_class(game_instance=self)
