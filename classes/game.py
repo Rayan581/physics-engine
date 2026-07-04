@@ -618,6 +618,42 @@ class Game:
             dt = min(self.clock.tick(FPS) / 1000.0, 0.033)
             self.handle_events()
             if self.sim_state == PLAYING:
+                import math
+                keys = pygame.key.get_pressed()
+                mouse_buttons = pygame.mouse.get_pressed()
+                
+                def is_pressed(ctrl):
+                    if not ctrl: return False
+                    if ctrl.startswith("MOUSE_"):
+                        try: return mouse_buttons[int(ctrl.split("_")[1]) - 1]
+                        except: return False
+                    else:
+                        try: return keys[pygame.key.key_code(ctrl)]
+                        except (ValueError, KeyError, AttributeError): return False
+                        
+                for b in self.bodies:
+                    # Apply thrust
+                    if getattr(b, 'ctrl_up', None) and is_pressed(b.ctrl_up): b.vy -= b.control_thrust * dt
+                    if getattr(b, 'ctrl_down', None) and is_pressed(b.ctrl_down): b.vy += b.control_thrust * dt
+                    if getattr(b, 'ctrl_left', None) and is_pressed(b.ctrl_left): b.vx -= b.control_thrust * dt
+                    if getattr(b, 'ctrl_right', None) and is_pressed(b.ctrl_right): b.vx += b.control_thrust * dt
+                    
+                    # Apply velocity cap
+                    if getattr(b, 'control_max_vel', 0) > 0:
+                        speed = math.hypot(b.vx, b.vy)
+                        if speed > b.control_max_vel:
+                            scale = b.control_max_vel / speed
+                            b.vx *= scale
+                            b.vy *= scale
+                            
+                for j in self.joints:
+                    if getattr(j, 'ctrl_cw', None) or getattr(j, 'ctrl_ccw', None):
+                        speed = 0.0
+                        if is_pressed(j.ctrl_cw): speed += j.control_speed
+                        if is_pressed(j.ctrl_ccw): speed -= j.control_speed
+                        j.motor_enabled = True
+                        j.motor_speed = speed
+
                 self._physics_step(dt)
             elif self.sim_state == 'ai_playing':
                 is_sb3 = getattr(self.trainer_class, 'is_sb3', False) or getattr(self.trainer_class, 'is_ppo', False)

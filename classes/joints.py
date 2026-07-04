@@ -38,6 +38,11 @@ class MotorJoint:
         self.min_angle = -math.pi / 4.0
         self.max_angle = math.pi / 4.0
         
+        # User controls
+        self.ctrl_cw = ""
+        self.ctrl_ccw = ""
+        self.control_speed = 5.0
+        
         # Accumulated impulses for warm-starting (optional, keeping it simple for now)
         self.acc_jx = 0.0
         self.acc_jy = 0.0
@@ -54,7 +59,10 @@ class MotorJoint:
             "motor_torque": self.motor_torque,
             "limits_enabled": self.limits_enabled,
             "min_angle": self.min_angle,
-            "max_angle": self.max_angle
+            "max_angle": self.max_angle,
+            "ctrl_cw": self.ctrl_cw,
+            "ctrl_ccw": self.ctrl_ccw,
+            "control_speed": self.control_speed
         }
         
     @staticmethod
@@ -70,6 +78,9 @@ class MotorJoint:
         j.limits_enabled = d.get("limits_enabled", False)
         j.min_angle = d.get("min_angle", -math.pi / 4.0)
         j.max_angle = d.get("max_angle", math.pi / 4.0)
+        j.ctrl_cw = d.get("ctrl_cw", "")
+        j.ctrl_ccw = d.get("ctrl_ccw", "")
+        j.control_speed = d.get("control_speed", 5.0)
         return j
         
     def get_anchor_a(self):

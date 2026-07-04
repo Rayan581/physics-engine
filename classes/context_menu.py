@@ -51,6 +51,14 @@ class ContextMenu:
         
         self._dragging_sv = False
         self._dragging_hue = False
+        
+        self._listening_ctrl = None  # Which control (e.g. 'ctrl_up') is waiting for a key press
+        self._thrust_text = ""
+        self._thrust_edit = False
+        self._max_vel_text = ""
+        self._max_vel_edit = False
+        self._ctrl_speed_text = ""
+        self._ctrl_speed_edit = False
 
     def init_fonts(self):
         self._font_t = pygame.font.SysFont("segoeui", 13, bold=True)
@@ -95,13 +103,14 @@ class ContextMenu:
             mx = screen_x - self.W - 12
         my = max(4, min(my, HEIGHT - self.H - 4))
         if type(body).__name__ == "MotorJoint":
-            self.H = 208
+            self.H = 278
             self._speed_text = f"{math.degrees(body.motor_speed):.0f}"
             self._torque_text = f"{body.motor_torque:.0f}"
             self._min_text = f"{math.degrees(body.min_angle):.0f}"
             self._max_text = f"{math.degrees(body.max_angle):.0f}"
+            self._ctrl_speed_text = f"{body.control_speed:.1f}"
         else:
-            self.H = 554 if type(body).__name__ == "TextBody" else 504
+            self.H = 654 if type(body).__name__ == "TextBody" else 604
             self._name_text = getattr(body, 'name', '')
             self._mass_text = f"{body.mass:.1f}"
             self._layer_text = ", ".join(sorted(body.layers))
@@ -128,6 +137,12 @@ class ContextMenu:
         self._b_edit = False
         self._speed_edit = False
         self._torque_edit = False
+        self._thrust_text = f"{getattr(body, 'control_thrust', 2000.0):.1f}"
+        self._max_vel_text = f"{getattr(body, 'control_max_vel', 500.0):.1f}"
+        self._thrust_edit = False
+        self._max_vel_edit = False
+        self._ctrl_speed_edit = False
+        self._listening_ctrl = None
 
     def close(self):
         self._apply_mass()
@@ -136,6 +151,7 @@ class ContextMenu:
         self._apply_color()
         self._apply_motor()
         self._apply_text()
+        self._apply_controls()
         self._body = None
         self._rect = None
         self._mass_edit = False
@@ -152,6 +168,10 @@ class ContextMenu:
         self._max_edit = False
         self._dragging_sv = False
         self._dragging_hue = False
+        self._listening_ctrl = None
+        self._thrust_edit = False
+        self._max_vel_edit = False
+        self._ctrl_speed_edit = False
 
     def contains(self, pos) -> bool:
         return bool(self._rect and self._rect.collidepoint(pos))
@@ -252,8 +272,36 @@ class ContextMenu:
             self._max_text = f"{math.degrees(self._body.max_angle):.0f}"
             self._max_edit = False
 
+    def _apply_controls(self):
+        if not self._body: return
+        if self.is_motor:
+            if self._ctrl_speed_edit:
+                try: self._body.control_speed = max(0.0, float(self._ctrl_speed_text))
+                except ValueError: pass
+                self._ctrl_speed_text = f"{self._body.control_speed:.1f}"
+                self._ctrl_speed_edit = False
+        else:
+            if self._thrust_edit:
+                try: self._body.control_thrust = float(self._thrust_text)
+                except ValueError: pass
+                self._thrust_text = f"{self._body.control_thrust:.1f}"
+                self._thrust_edit = False
+            if self._max_vel_edit:
+                try: self._body.control_max_vel = float(self._max_vel_text)
+                except ValueError: pass
+                self._max_vel_text = f"{self._body.control_max_vel:.1f}"
+                self._max_vel_edit = False
+
     def handle_key(self, ev) -> bool:
-        if self._mass_edit or self._speed_edit or self._torque_edit or self._min_edit or self._max_edit or self._r_edit or self._g_edit or self._b_edit:
+        if self._listening_ctrl:
+            if ev.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE, pygame.K_DELETE):
+                setattr(self._body, self._listening_ctrl, "")
+            else:
+                setattr(self._body, self._listening_ctrl, pygame.key.name(ev.key))
+            self._listening_ctrl = None
+            return True
+
+        if self._mass_edit or self._speed_edit or self._torque_edit or self._min_edit or self._max_edit or self._r_edit or self._g_edit or self._b_edit or self._thrust_edit or self._max_vel_edit or self._ctrl_speed_edit:
             target_text = self._mass_text if self._mass_edit else \
                           self._speed_text if self._speed_edit else \
                           self._torque_text if self._torque_edit else \
@@ -261,11 +309,15 @@ class ContextMenu:
                           self._max_text if self._max_edit else \
                           self._r_text if self._r_edit else \
                           self._g_text if self._g_edit else \
-                          self._b_text
+                          self._b_text if self._b_edit else \
+                          self._thrust_text if self._thrust_edit else \
+                          self._max_vel_text if self._max_vel_edit else \
+                          self._ctrl_speed_text
             
             if ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
                 if self._mass_edit: self._apply_mass()
                 elif self._r_edit or self._g_edit or self._b_edit: self._apply_color()
+                elif self._thrust_edit or self._max_vel_edit or self._ctrl_speed_edit: self._apply_controls()
                 else: self._apply_motor()
             elif ev.key == pygame.K_BACKSPACE:
                 target_text = target_text[:-1]
@@ -282,6 +334,9 @@ class ContextMenu:
             elif self._r_edit: self._r_text = target_text
             elif self._g_edit: self._g_text = target_text
             elif self._b_edit: self._b_text = target_text
+            elif self._thrust_edit: self._thrust_text = target_text
+            elif self._max_vel_edit: self._max_vel_text = target_text
+            elif self._ctrl_speed_edit: self._ctrl_speed_text = target_text
             return True
         elif self._layer_edit:
             if ev.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_ESCAPE):
@@ -312,6 +367,12 @@ class ContextMenu:
         return False
 
     def handle_click(self, pos, button=1):
+        if self._listening_ctrl:
+            if button in (1, 2, 3, 4, 5):
+                setattr(self._body, self._listening_ctrl, f"MOUSE_{button}")
+            self._listening_ctrl = None
+            return
+
         if not self._body or not self._rect:
             return
             
@@ -325,6 +386,18 @@ class ContextMenu:
             return
 
         if self.is_motor:
+            if self._ctrl_cw_btn().collidepoint(pos):
+                self._listening_ctrl = 'ctrl_cw'
+                return
+            if self._ctrl_ccw_btn().collidepoint(pos):
+                self._listening_ctrl = 'ctrl_ccw'
+                return
+            if self._ctrl_speed_box().collidepoint(pos):
+                self._apply_motor()
+                self._apply_controls()
+                self._ctrl_speed_edit = True
+                return
+            
             if self._speed_box().collidepoint(pos):
                 self._apply_motor()
                 self._speed_edit = True
@@ -381,6 +454,31 @@ class ContextMenu:
             self._text_edit = True
             return
             
+        if self._ctrl_up_btn().collidepoint(pos): self._listening_ctrl = 'ctrl_up'; return
+        if self._ctrl_down_btn().collidepoint(pos): self._listening_ctrl = 'ctrl_down'; return
+        if self._ctrl_left_btn().collidepoint(pos): self._listening_ctrl = 'ctrl_left'; return
+        if self._ctrl_right_btn().collidepoint(pos): self._listening_ctrl = 'ctrl_right'; return
+        
+        if self._thrust_box().collidepoint(pos):
+            self._apply_mass()
+            self._apply_layer()
+            self._apply_color()
+            self._apply_name()
+            self._apply_text()
+            self._apply_controls()
+            self._thrust_edit = True
+            return
+            
+        if self._max_vel_box().collidepoint(pos):
+            self._apply_mass()
+            self._apply_layer()
+            self._apply_color()
+            self._apply_name()
+            self._apply_text()
+            self._apply_controls()
+            self._max_vel_edit = True
+            return
+
         if self._r_box().collidepoint(pos):
             self._apply_mass()
             self._apply_layer()
@@ -412,6 +510,7 @@ class ContextMenu:
         self._apply_name()
         self._apply_color()
         self._apply_text()
+        self._apply_controls()
 
         if self._fixed_btn().collidepoint(pos):
             self._body.fixed = not self._body.fixed
@@ -648,6 +747,18 @@ class ContextMenu:
         if type(self._body).__name__ == "TextBody":
             return pygame.Rect(self._rect.x + self.PAD, self._rect.y + 502, self.W - self.PAD*2, 44)
         return None
+        
+    def _ctrl_up_btn(self): return pygame.Rect(self._rect.x + 60, self._rect.bottom - 90, 40, 18)
+    def _ctrl_left_btn(self): return pygame.Rect(self._rect.x + 18, self._rect.bottom - 68, 40, 18)
+    def _ctrl_down_btn(self): return pygame.Rect(self._rect.x + 60, self._rect.bottom - 68, 40, 18)
+    def _ctrl_right_btn(self): return pygame.Rect(self._rect.x + 102, self._rect.bottom - 68, 40, 18)
+    
+    def _thrust_box(self): return pygame.Rect(self._rect.x + 48, self._rect.bottom - 42, 38, 18)
+    def _max_vel_box(self): return pygame.Rect(self._rect.x + 116, self._rect.bottom - 42, 38, 18)
+    
+    def _ctrl_cw_btn(self): return pygame.Rect(self._rect.x + 82, self._rect.bottom - 64, 60, 18)
+    def _ctrl_ccw_btn(self): return pygame.Rect(self._rect.x + 16, self._rect.bottom - 64, 60, 18)
+    def _ctrl_speed_box(self): return pygame.Rect(self._rect.x + 52, self._rect.bottom - 36, 48, 18)
 
     # ── draw ────────────────────────────────────────────────────────────────────
 
@@ -873,6 +984,41 @@ class ContextMenu:
                 surface.blit(ts, (t_box.x + 3, ty), area=pygame.Rect(0, 0, t_box.width-6, min(ts.get_height(), avail_h)))
                 ty += ts.get_height()
 
+        # Controls section
+        pygame.draw.line(surface, CM_BORDER, (r.x + self.PAD, r.bottom - 100), (r.right - self.PAD, r.bottom - 100))
+        surface.blit(self._font.render("Controls:", True, CM_TEXT_COLOR), (r.x + self.PAD, r.bottom - 114))
+        
+        for name, btn in [('ctrl_up', self._ctrl_up_btn()), ('ctrl_down', self._ctrl_down_btn()), 
+                          ('ctrl_left', self._ctrl_left_btn()), ('ctrl_right', self._ctrl_right_btn())]:
+            hov = btn.collidepoint(mouse_pos)
+            is_list = self._listening_ctrl == name
+            pygame.draw.rect(surface, CM_BTN_ACTIVE if is_list else (CM_BTN_HOVER if hov else CM_BTN_BG), btn, border_radius=3)
+            pygame.draw.rect(surface, CM_ACCENT if is_list else CM_BORDER, btn, 1, border_radius=3)
+            val = getattr(self._body, name)
+            disp = "..." if is_list else (val if val else name.split('_')[1].upper())
+            # Limit length of display text so it doesn't overflow
+            if len(disp) > 5 and not is_list: disp = disp[:4] + "."
+            ls = self._font.render(disp, True, Colors.WHITE if is_list else CM_TEXT_COLOR)
+            surface.blit(ls, ls.get_rect(center=btn.center))
+            
+        surface.blit(self._font.render("Thrust:", True, CM_TEXT_COLOR), (r.x + self.PAD, r.bottom - 40))
+        tbox = self._thrust_box()
+        pygame.draw.rect(surface, Colors.WHITE if self._thrust_edit else CM_BTN_BG, tbox, border_radius=2)
+        pygame.draw.rect(surface, CM_ACCENT if self._thrust_edit else CM_BORDER, tbox, 1, border_radius=2)
+        disp_text = self._thrust_text if self._thrust_edit else f"{self._body.control_thrust:.1f}"
+        if self._thrust_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
+        ts = self._font.render(disp_text, True, Colors.BLACK if self._thrust_edit else CM_TEXT_COLOR)
+        surface.blit(ts, (tbox.x + 3, tbox.y + 1), area=pygame.Rect(0, 0, tbox.width-6, tbox.height))
+
+        surface.blit(self._font.render("MaxV:", True, CM_TEXT_COLOR), (r.x + 84, r.bottom - 40))
+        vbox = self._max_vel_box()
+        pygame.draw.rect(surface, Colors.WHITE if self._max_vel_edit else CM_BTN_BG, vbox, border_radius=2)
+        pygame.draw.rect(surface, CM_ACCENT if self._max_vel_edit else CM_BORDER, vbox, 1, border_radius=2)
+        disp_text = self._max_vel_text if self._max_vel_edit else f"{self._body.control_max_vel:.1f}"
+        if self._max_vel_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
+        ts = self._font.render(disp_text, True, Colors.BLACK if self._max_vel_edit else CM_TEXT_COLOR)
+        surface.blit(ts, (vbox.x + 3, vbox.y + 1), area=pygame.Rect(0, 0, vbox.width-6, vbox.height))
+
     def _draw_motor(self, surface: pygame.Surface, mouse_pos):
         import math
         r = self._rect
@@ -954,3 +1100,37 @@ class ContextMenu:
         if self._max_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
         ts = self._font.render(disp_text, True, Colors.BLACK if self._max_edit else CM_TEXT_COLOR)
         surface.blit(ts, (maxb.x + 3, maxb.y + 1), area=pygame.Rect(0, 0, maxb.width-6, maxb.height))
+
+        # Controls section
+        pygame.draw.line(surface, CM_BORDER, (r.x + self.PAD, r.bottom - 74), (r.right - self.PAD, r.bottom - 74))
+        surface.blit(self._font.render("Controls:", True, CM_TEXT_COLOR), (r.x + self.PAD, r.bottom - 88))
+        
+        # CCW
+        btn = self._ctrl_ccw_btn()
+        hov = btn.collidepoint(mouse_pos)
+        is_list = self._listening_ctrl == 'ctrl_ccw'
+        pygame.draw.rect(surface, CM_BTN_ACTIVE if is_list else (CM_BTN_HOVER if hov else CM_BTN_BG), btn, border_radius=3)
+        pygame.draw.rect(surface, CM_ACCENT if is_list else CM_BORDER, btn, 1, border_radius=3)
+        t = "Press key..." if is_list else (self._body.ctrl_ccw or "CCW")
+        ls = self._font.render(t, True, Colors.WHITE if is_list else CM_TEXT_COLOR)
+        surface.blit(ls, ls.get_rect(center=btn.center))
+        
+        # CW
+        btn = self._ctrl_cw_btn()
+        hov = btn.collidepoint(mouse_pos)
+        is_list = self._listening_ctrl == 'ctrl_cw'
+        pygame.draw.rect(surface, CM_BTN_ACTIVE if is_list else (CM_BTN_HOVER if hov else CM_BTN_BG), btn, border_radius=3)
+        pygame.draw.rect(surface, CM_ACCENT if is_list else CM_BORDER, btn, 1, border_radius=3)
+        t = "Press key..." if is_list else (self._body.ctrl_cw or "CW")
+        ls = self._font.render(t, True, Colors.WHITE if is_list else CM_TEXT_COLOR)
+        surface.blit(ls, ls.get_rect(center=btn.center))
+        
+        # Speed
+        surface.blit(self._font.render("Speed:", True, CM_TEXT_COLOR), (r.x + self.PAD, r.bottom - 34))
+        sbox = self._ctrl_speed_box()
+        pygame.draw.rect(surface, Colors.WHITE if self._ctrl_speed_edit else CM_BTN_BG, sbox, border_radius=2)
+        pygame.draw.rect(surface, CM_ACCENT if self._ctrl_speed_edit else CM_BORDER, sbox, 1, border_radius=2)
+        disp_text = self._ctrl_speed_text if self._ctrl_speed_edit else f"{self._body.control_speed:.1f}"
+        if self._ctrl_speed_edit and pygame.time.get_ticks() % 1000 < 500: disp_text += "|"
+        ts = self._font.render(disp_text, True, Colors.BLACK if self._ctrl_speed_edit else CM_TEXT_COLOR)
+        surface.blit(ts, (sbox.x + 3, sbox.y + 1), area=pygame.Rect(0, 0, sbox.width-6, sbox.height))

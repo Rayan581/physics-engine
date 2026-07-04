@@ -49,6 +49,15 @@ class Body:
         self.show_outline = True
         self.outline_color = BODY_OUTLINE_COLOR
         self.name = ""
+        
+        # User controls
+        self.ctrl_up = ""
+        self.ctrl_down = ""
+        self.ctrl_left = ""
+        self.ctrl_right = ""
+        self.control_thrust = 2000.0
+        self.control_max_vel = 500.0
+        
         self._snap()
 
     def _snap(self):
@@ -104,6 +113,12 @@ class Body:
             "alpha": self.alpha,
             "show_outline": self.show_outline,
             "outline_color": list(self.outline_color),
+            "ctrl_up": self.ctrl_up,
+            "ctrl_down": self.ctrl_down,
+            "ctrl_left": self.ctrl_left,
+            "ctrl_right": self.ctrl_right,
+            "control_thrust": self.control_thrust,
+            "control_max_vel": self.control_max_vel,
             "_init": self._init
         }
 
@@ -118,6 +133,12 @@ class Body:
         self.alpha = d.get("alpha", 255)
         self.show_outline = d.get("show_outline", True)
         self.outline_color = tuple(d.get("outline_color", BODY_OUTLINE_COLOR))
+        self.ctrl_up = d.get("ctrl_up", "")
+        self.ctrl_down = d.get("ctrl_down", "")
+        self.ctrl_left = d.get("ctrl_left", "")
+        self.ctrl_right = d.get("ctrl_right", "")
+        self.control_thrust = d.get("control_thrust", 2000.0)
+        self.control_max_vel = d.get("control_max_vel", 500.0)
         self._init = d.get("_init", dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=0.0, av=0.0))
 
     @staticmethod
