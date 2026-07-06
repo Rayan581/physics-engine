@@ -27,6 +27,12 @@
         30,
         20
       ],
+      "ctrl_up": "",
+      "ctrl_down": "",
+      "ctrl_left": "",
+      "ctrl_right": "",
+      "control_thrust": 2000.0,
+      "control_max_vel": 500.0,
       "_init": {
         "x": -170.0,
         "y": -105.0,
@@ -52,8 +58,8 @@
       "restitution": 0.5,
       "fixed": true,
       "layers": [
-        "Default",
-        "wall"
+        "wall",
+        "Default"
       ],
       "color": [
         50,
@@ -67,6 +73,12 @@
         30,
         20
       ],
+      "ctrl_up": "",
+      "ctrl_down": "",
+      "ctrl_left": "",
+      "ctrl_right": "",
+      "control_thrust": 2000.0,
+      "control_max_vel": 500.0,
       "_init": {
         "x": -265.0,
         "y": -110.0,
@@ -92,8 +104,8 @@
       "restitution": 0.5,
       "fixed": true,
       "layers": [
-        "Default",
-        "wall"
+        "wall",
+        "Default"
       ],
       "color": [
         50,
@@ -107,6 +119,12 @@
         30,
         20
       ],
+      "ctrl_up": "",
+      "ctrl_down": "",
+      "ctrl_left": "",
+      "ctrl_right": "",
+      "control_thrust": 2000.0,
+      "control_max_vel": 500.0,
       "_init": {
         "x": -75.0,
         "y": -110.0,
@@ -147,6 +165,12 @@
         30,
         20
       ],
+      "ctrl_up": "",
+      "ctrl_down": "",
+      "ctrl_left": "a",
+      "ctrl_right": "d",
+      "control_thrust": 1000.0,
+      "control_max_vel": 500.0,
       "_init": {
         "x": -170.0,
         "y": -110.0,
@@ -186,6 +210,12 @@
         30,
         20
       ],
+      "ctrl_up": "",
+      "ctrl_down": "",
+      "ctrl_left": "",
+      "ctrl_right": "",
+      "control_thrust": 2000.0,
+      "control_max_vel": 500.0,
       "_init": {
         "x": -170.0,
         "y": -95.0,
@@ -225,6 +255,12 @@
         30,
         20
       ],
+      "ctrl_up": "",
+      "ctrl_down": "",
+      "ctrl_left": "",
+      "ctrl_right": "",
+      "control_thrust": 2000.0,
+      "control_max_vel": 500.0,
       "_init": {
         "x": -170.0,
         "y": -140.0,
@@ -255,13 +291,16 @@
       "limits_enabled": false,
       "min_angle": -0.7853981633974483,
       "max_angle": 0.7853981633974483,
+      "ctrl_cw": "",
+      "ctrl_ccw": "",
+      "control_speed": 5.0,
       "body_a": "17823981179928848",
       "body_b": "17823981179925376"
     }
   ],
   "camera": {
-    "x": -171.30853692371358,
-    "y": -139.9840674432867,
-    "zoom": 3.7593703992309284
+    "x": -172.78787892973324,
+    "y": -113.67108537305361,
+    "zoom": 3.2690177384616783
   }
 }

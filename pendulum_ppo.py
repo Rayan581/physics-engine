@@ -11,8 +11,9 @@ MAX_STEPS = 500               # About 8 seconds at 60 FPS
 MAX_ANGLE = math.radians(15)  # Fall angle limit
 
 class PendulumPPOTrainer(BaseTrainer, gym.Env):
-    is_sb3 = True
-    algorithm = "PPO"
+    is_sb3     = True
+    algorithm  = "PPO"
+    model_name = "pendulum_ppo"
 
     def __init__(self, game_instance=None):
         super().__init__()
@@ -106,7 +107,13 @@ class PendulumPPOTrainer(BaseTrainer, gym.Env):
         if self.game.sim_state == 'training':
             import time
             current_time = time.time()
-            if current_time - getattr(self, '_last_ui_update', 0) > (1.0 / 60.0):
+            fast_forward = getattr(self.game, 'fast_forward', False)
+
+            # In fast-forward: only pump events every 500ms — no rendering at all.
+            # In normal mode: render at up to 60 Hz.
+            ui_interval = 0.5 if fast_forward else (1.0 / 60.0)
+
+            if current_time - getattr(self, '_last_ui_update', 0) > ui_interval:
                 self._last_ui_update = current_time
                 events = pygame.event.get()
                 for ev in events:
@@ -131,11 +138,7 @@ class PendulumPPOTrainer(BaseTrainer, gym.Env):
                     elif ev.type == pygame.MOUSEMOTION:
                         self.game._motion(ev.pos)
 
-                if getattr(self.game, 'fast_forward', False):
-                    self.game.canvas.fill(CANVAS_BG)
-                    self._draw_hud(0)
-                    pygame.display.flip()
-                else:
+                if not fast_forward:
                     self.game.canvas.fill(CANVAS_BG)
                     self.game._draw()
                     if self.cart:
