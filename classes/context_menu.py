@@ -51,6 +51,7 @@ class ContextMenu:
         
         self._dragging_sv = False
         self._dragging_hue = False
+        self._dragging_alpha = False
         
         self._listening_ctrl = None  # Which control (e.g. 'ctrl_up') is waiting for a key press
         self._thrust_text = ""
@@ -143,6 +144,9 @@ class ContextMenu:
         self._max_vel_edit = False
         self._ctrl_speed_edit = False
         self._listening_ctrl = None
+        self._dragging_sv = False
+        self._dragging_hue = False
+        self._dragging_alpha = False
 
     def close(self):
         self._apply_mass()
