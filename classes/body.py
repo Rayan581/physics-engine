@@ -39,6 +39,7 @@ class Body:
         self.x = float(x);  self.y = float(y)
         self.mass = float(mass)
         self.restitution = float(restitution)
+        self.friction = 0.5
         self.vx = 0.0;  self.vy = 0.0
         self.angle = 0.0
         self.angular_velocity = 0.0
@@ -106,7 +107,7 @@ class Body:
             "x": self.x, "y": self.y,
             "vx": self.vx, "vy": self.vy,
             "angle": self.angle, "angular_velocity": self.angular_velocity,
-            "mass": self.mass, "restitution": self.restitution,
+            "mass": self.mass, "restitution": self.restitution, "friction": self.friction,
             "fixed": self.fixed,
             "layers": list(self.layers),
             "color": list(self.color),
@@ -127,6 +128,7 @@ class Body:
         self.vy = d.get("vy", 0.0)
         self.angle = d.get("angle", 0.0)
         self.angular_velocity = d.get("angular_velocity", 0.0)
+        self.friction = d.get("friction", 0.5)
         self.fixed = d.get("fixed", False)
         self.layers = set(d.get("layers", ["Default"]))
         self.color = tuple(d.get("color", BODY_COLOR))
@@ -149,7 +151,17 @@ class Body:
         elif typ == "CircleBody":
             b = CircleBody(d["x"], d["y"], d["radius"], d["mass"], d["restitution"])
         elif typ == "PolygonBody":
-            b = PolygonBody(d["points"], d["mass"], d["restitution"])
+            if "local_points" in d:
+                # New format: local_points saved directly — just reconstruct at the correct position
+                b = PolygonBody([[d["x"], d["y"]], [d["x"]+1, d["y"]], [d["x"], d["y"]+1]], d["mass"], d["restitution"])
+                b.x = float(d["x"])
+                b.y = float(d["y"])
+                b.local_points = [tuple(p) for p in d["local_points"]]
+            else:
+                # Old format: points were saved as local_offset + world_pos (no rotation applied)
+                # PolygonBody.__init__ recomputes centroid, which equals (d["x"], d["y"]) for these points
+                b = PolygonBody(d["points"], d["mass"], d["restitution"])
+                b.local_points = [(p[0] - d["x"], p[1] - d["y"]) for p in d["points"]]
         elif typ == "TextBody":
             b = TextBody(d["x"], d["y"], d.get("text", "Text"), d.get("mass", 1.0), d.get("restitution", 0.5))
             b.width = d["width"]
@@ -222,7 +234,7 @@ class RectBody(Body):
         # Centre-of-mass dot
         if show_com:
             sx, sy = cam.w2s(self.x, self.y)
-            pygame.draw.circle(surface, COM_COLOR, (int(sx), int(sy)), max(3, int(3*cam.zoom)))
+            pygame.draw.circle(surface, COM_COLOR, (int(sx), int(sy)), max(2, int(cam.zoom / 2)))
 
     def draw_outline(self, surface, cam, color, width=2):
         pygame.draw.polygon(surface, color, self._screen_pts(cam), width)
@@ -309,7 +321,13 @@ class PolygonBody(Body):
 
     def to_dict(self):
         d = super().to_dict()
-        d["points"] = [[px + self.x, py + self.y] for px, py in self.local_points]
+        ca, sa = math.cos(self.angle), math.sin(self.angle)
+        # Save world-space vertices (for editors/preview) and local_points (authoritative for physics)
+        d["points"] = [
+            [self.x + px*ca - py*sa, self.y + px*sa + py*ca]
+            for px, py in self.local_points
+        ]
+        d["local_points"] = [list(p) for p in self.local_points]
         return d
 
     @staticmethod

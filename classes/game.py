@@ -131,9 +131,11 @@ class Game:
 
     def _joint_at_world(self, wx, wy):
         import math
+        r_screen = max(4, int(self.camera.zoom)) + 4
+        hit_dist_world = r_screen / self.camera.zoom
         for j in reversed(self.joints):
             ax, ay = j.get_anchor_a()
-            if math.hypot(wx - ax, wy - ay) < max(5.0, 5.0 / self.camera.zoom):
+            if math.hypot(wx - ax, wy - ay) <= hit_dist_world:
                 return j
         return None
 
@@ -748,6 +750,10 @@ class Game:
                                        self._ai_last_obs, self._ai_last_action)
                 except Exception:
                     pass
+                    
+            if getattr(self, 'show_exit_dialog', False):
+                self._draw_exit_dialog()
+                
             pygame.display.flip()
         pygame.quit()
 
@@ -757,6 +763,24 @@ class Game:
         for ev in pygame.event.get():
             if ev.type == pygame.QUIT:
                 self.running = False
+
+            if getattr(self, 'show_exit_dialog', False):
+                if ev.type == pygame.KEYDOWN:
+                    self._key(ev)
+                elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                    cw, ch = self.screen.get_size()
+                    W, H = 300, 150
+                    x, y = cw//2 - W//2, ch//2 - H//2
+                    btn_w, btn_h = 100, 35
+                    margin = 25
+                    cancel_rect = pygame.Rect(x + margin, y + H - btn_h - margin, btn_w, btn_h)
+                    confirm_rect = pygame.Rect(x + W - btn_w - margin, y + H - btn_h - margin, btn_w, btn_h)
+                    
+                    if cancel_rect.collidepoint(ev.pos):
+                        self.show_exit_dialog = False
+                    elif confirm_rect.collidepoint(ev.pos):
+                        self.running = False
+                continue
 
             elif ev.type == pygame.KEYDOWN:
                 if self.ctx_menu.is_open and self.ctx_menu.handle_key(ev):
@@ -811,6 +835,20 @@ class Game:
                     self.save_state()
                     sel_joints = [j for j in self.joints if j.a in self.selected and (j.b is None or j.b in self.selected)]
                     state = serialize(list(self.selected), sel_joints)
+                    # Assign new unique IDs and remap joints
+                    import time
+                    id_map = {}
+                    for i, bd in enumerate(state.get("bodies", [])):
+                        old_id = bd.get("id")
+                        new_id = f"{int(time.time() * 1000000) + i}{str(i)[-4:]}"
+                        id_map[old_id] = new_id
+                        bd["id"] = new_id
+                    
+                    for jd in state.get("joints", []):
+                        jd["body_a"] = id_map.get(jd.get("body_a"))
+                        if jd.get("body_b") is not None:
+                            jd["body_b"] = id_map.get(jd.get("body_b"))
+                            
                     new_bodies, new_joints, _ = deserialize(state)
                     for b in new_bodies:
                         b.x += 30.0
@@ -854,10 +892,16 @@ class Game:
                     self.selected = set(new_bodies)
             return
 
+        if getattr(self, 'show_exit_dialog', False):
+            if k == pygame.K_ESCAPE: self.show_exit_dialog = False
+            elif k in (pygame.K_RETURN, pygame.K_KP_ENTER): self.running = False
+            return
+
         if k == pygame.K_ESCAPE:
             if self.ctx_menu.is_open: self.ctx_menu.close()
             elif self.drawing.mode:   self.drawing.cancel()
-            else:                     self.running = False
+            elif self.selected:       self.selected.clear()
+            else:                     self.show_exit_dialog = True
         elif k == pygame.K_SPACE:
             if   self.sim_state == STOPPED: self._play()
             elif self.sim_state == PLAYING: self._pause()
@@ -1479,3 +1523,36 @@ class Game:
         mp = pygame.mouse.get_pos()
         self.toolbox.draw(self.screen, self.drawing.mode, self.sim_state, mp)
         self.ctx_menu.draw(self.screen, mp)
+
+    def _draw_exit_dialog(self):
+        cw, ch = self.screen.get_size()
+        W, H = 300, 150
+        x, y = cw//2 - W//2, ch//2 - H//2
+        
+        overlay = pygame.Surface((cw, ch), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        self.screen.blit(overlay, (0, 0))
+        
+        dialog = pygame.Rect(x, y, W, H)
+        pygame.draw.rect(self.screen, (40, 30, 20), dialog)
+        pygame.draw.rect(self.screen, (200, 160, 100), dialog, 2)
+        
+        font = self.ctx_menu._font_t
+        text = font.render("Exit physics engine?", True, Colors.WHITE)
+        self.screen.blit(text, (x + W//2 - text.get_width()//2, y + 30))
+        
+        font_b = self.ctx_menu._font
+        btn_w, btn_h = 100, 35
+        margin = 25
+        
+        cancel_rect = pygame.Rect(x + margin, y + H - btn_h - margin, btn_w, btn_h)
+        pygame.draw.rect(self.screen, (100, 40, 40), cancel_rect)
+        pygame.draw.rect(self.screen, (200, 80, 80), cancel_rect, 1)
+        ctext = font_b.render("Cancel", True, Colors.WHITE)
+        self.screen.blit(ctext, (cancel_rect.x + btn_w//2 - ctext.get_width()//2, cancel_rect.y + btn_h//2 - ctext.get_height()//2))
+        
+        confirm_rect = pygame.Rect(x + W - btn_w - margin, y + H - btn_h - margin, btn_w, btn_h)
+        pygame.draw.rect(self.screen, (40, 100, 40), confirm_rect)
+        pygame.draw.rect(self.screen, (80, 200, 80), confirm_rect, 1)
+        oktext = font_b.render("Confirm", True, Colors.WHITE)
+        self.screen.blit(oktext, (confirm_rect.x + btn_w//2 - oktext.get_width()//2, confirm_rect.y + btn_h//2 - oktext.get_height()//2))

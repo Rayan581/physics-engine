@@ -244,18 +244,19 @@ class MotorJoint:
         ax, ay = self.get_anchor_a()
         sx, sy = cam.w2s(ax, ay)
         
-        r = max(1, int(6 * cam.zoom))
+        r = max(4, int(cam.zoom))
         color = MOTOR_ENABLED_COLOR if self.motor_enabled else MOTOR_DISABLED_COLOR
         
-        pygame.draw.circle(surface, color, (int(sx), int(sy)), r, 2)
+        lw = max(1, r // 4)
+        pygame.draw.circle(surface, color, (int(sx), int(sy)), r, lw)
         
         # Draw a line showing the rotation of body A
         ca, sa = math.cos(self.a.angle), math.sin(self.a.angle)
         ex, ey = sx + ca * r, sy + sa * r
-        pygame.draw.line(surface, color, (int(sx), int(sy)), (int(ex), int(ey)), 2)
+        pygame.draw.line(surface, color, (int(sx), int(sy)), (int(ex), int(ey)), lw)
         
         # Draw inner dot
-        pygame.draw.circle(surface, color, (int(sx), int(sy)), max(1, r//3))
+        pygame.draw.circle(surface, color, (int(sx), int(sy)), max(1, r // 3))
 
     def draw_limits(self, surface, cam):
         if not self.limits_enabled:
