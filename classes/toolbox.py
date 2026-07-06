@@ -241,6 +241,9 @@ class Toolbox:
         bh2 = 24
         
         # Scene menu
+        fw = self.rect.width - pad * 2
+        self._action_btns.append(TextButton('new',    'New Scene',    pygame.Rect(self.rect.x + pad,          y, fw, bh2)))
+        y += bh2 + 4
         self._action_btns.append(TextButton('save',   'Save Scene',   pygame.Rect(self.rect.x + pad,          y, bw2, bh2)))
         self._action_btns.append(TextButton('load',   'Load Scene',   pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh2)))
 
@@ -255,7 +258,6 @@ class Toolbox:
         self._action_btns.append(TextButton('run_ai',  'Run AI',      pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh2)))
 
         y += bh2 + 14
-        fw = self.rect.width - pad * 2
         self._checkboxes.append(Checkbox('show_com', 'Show CoM',
                                           pygame.Rect(self.rect.x + pad, y, fw, 20), True))
         y += 24

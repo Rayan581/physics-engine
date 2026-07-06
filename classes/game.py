@@ -44,6 +44,7 @@ class Game:
         self.toolbox.init_fonts()
         self.ctx_menu = ContextMenu()
         self.ctx_menu.init_fonts()
+        self.ctx_menu.save_state_cb = self.save_state
 
         self.canvas: pygame.Surface = self.screen.subsurface(
             pygame.Rect(TOOLBOX_WIDTH, 0, WIDTH, HEIGHT))
@@ -61,6 +62,41 @@ class Game:
         self._rd_moved   = False
         self.magnetic_radius = 100
         self.magnetic_enabled = False
+
+        self.undo_stack = []
+        self.redo_stack = []
+
+    # ── undo/redo ───────────────────────────────────────────────────────────────
+
+    def save_state(self):
+        from classes.serialization import serialize
+        state = serialize(self.bodies, self.joints)
+        self.undo_stack.append(state)
+        if len(self.undo_stack) > 20:
+            self.undo_stack.pop(0)
+        self.redo_stack.clear()
+
+    def undo(self):
+        if not self.undo_stack: return
+        from classes.serialization import serialize, deserialize
+        current_state = serialize(self.bodies, self.joints)
+        self.redo_stack.append(current_state)
+        
+        state = self.undo_stack.pop()
+        self.bodies, self.joints, _ = deserialize(state)
+        self.selected.clear()
+        self.ctx_menu.close()
+
+    def redo(self):
+        if not self.redo_stack: return
+        from classes.serialization import serialize, deserialize
+        current_state = serialize(self.bodies, self.joints)
+        self.undo_stack.append(current_state)
+        
+        state = self.redo_stack.pop()
+        self.bodies, self.joints, _ = deserialize(state)
+        self.selected.clear()
+        self.ctx_menu.close()
 
     # ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -229,7 +265,18 @@ class Game:
 
     def _file_action(self, action: str):
         from classes.serialization import get_save_path, get_open_path, save_to_file, load_from_file
-        if action == 'save':
+        if action == 'new':
+            self.bodies.clear()
+            self.joints.clear()
+            self.selected.clear()
+            self.ctx_menu.close()
+            if hasattr(self, '_last_manifolds'): self._last_manifolds = []
+            self.undo_stack.clear()
+            self.redo_stack.clear()
+            self.camera.cam_x = 0.0
+            self.camera.cam_y = 0.0
+            self.camera.zoom = 1.0
+        elif action == 'save':
             path = get_save_path()
             if path:
                 cam_data = {"x": self.camera.cam_x, "y": self.camera.cam_y, "zoom": self.camera.zoom}
@@ -751,7 +798,28 @@ class Game:
 
         if ctrl and self.sim_state == STOPPED:
             from classes.serialization import get_save_path, get_open_path, save_to_file, load_from_file
-            if k == pygame.K_s:
+            if k == pygame.K_z:
+                self.undo()
+            elif k == pygame.K_y:
+                self.redo()
+            elif k == pygame.K_n:
+                self._file_action('new')
+            elif k == pygame.K_d:
+                # Duplicate Selection
+                if self.selected:
+                    from classes.serialization import serialize, deserialize
+                    self.save_state()
+                    sel_joints = [j for j in self.joints if j.a in self.selected and (j.b is None or j.b in self.selected)]
+                    state = serialize(list(self.selected), sel_joints)
+                    new_bodies, new_joints, _ = deserialize(state)
+                    for b in new_bodies:
+                        b.x += 30.0
+                        b.y += 30.0
+                        b._snap()
+                    self.bodies.extend(new_bodies)
+                    self.joints.extend(new_joints)
+                    self.selected = set(new_bodies)
+            elif k == pygame.K_s:
                 # Save Scene
                 path = get_save_path()
                 if path:
@@ -815,12 +883,14 @@ class Game:
             self.drawing.set_mode(None if self.drawing.mode=='text' else 'text')
         elif k in (pygame.K_DELETE, pygame.K_BACKSPACE) and self.sim_state == STOPPED:
             if self.ctx_menu.is_open and self.ctx_menu.is_motor:
+                self.save_state()
                 # Delete the specific motor currently being edited
                 motor = self.ctx_menu._body
                 if motor in self.joints:
                     self.joints.remove(motor)
                 self.ctx_menu.close()
             elif self.selected:
+                self.save_state()
                 # Delete selected bodies
                 for b in self.selected:
                     if b in self.bodies:
@@ -881,13 +951,20 @@ class Game:
 
         # Drawing tool takes priority
         if self.drawing.mode and self.sim_state == STOPPED:
-            self.drawing.handle_click(snap_wp, self.bodies.append, self.bodies, self.joints.append, cam=self.camera)
+            def add_body(b):
+                self.save_state()
+                self.bodies.append(b)
+            def add_joint(j):
+                self.save_state()
+                self.joints.append(j)
+            self.drawing.handle_click(snap_wp, add_body, self.bodies, add_joint, cam=self.camera)
             return
 
         # Begin left-drag tracking
         self._ld_down_s = cp
         self._ld_down_w = raw_wp
         self._ld_mode   = None   # resolved in _motion or _lmb_up
+        self._drag_state_saved = False
         
         # Check resize handles first
         if self.sim_state == STOPPED:
@@ -963,6 +1040,7 @@ class Game:
             
         cp = self._canvas_pos(pos)
         self._rd_down_s = cp;  self._rd_last_s = cp;  self._rd_moved = False
+        self._drag_state_saved = False
         
         wp = self.camera.s2w(*cp)
         hit = self._body_at_world(*wp)
@@ -1018,6 +1096,9 @@ class Game:
                 if getattr(self, '_rd_mode', 'pan') == 'pan':
                     self.camera.pan(dx, dy)
                 elif getattr(self, '_rd_mode', None) == 'rotate':
+                    if not getattr(self, '_drag_state_saved', False):
+                        self.save_state()
+                        self._drag_state_saved = True
                     import math
                     ma = math.atan2(raw_wp[1] - self._rotate_body.y, raw_wp[0] - self._rotate_body.x)
                     da = ma - self._rotate_start_mouse_a
@@ -1031,6 +1112,9 @@ class Game:
             if self._ld_down_s:
                 ddx = cp[0]-self._ld_down_s[0]; ddy = cp[1]-self._ld_down_s[1]
                 if ddx*ddx+ddy*ddy >= DRAG_DIST**2:
+                    if not getattr(self, '_drag_state_saved', False):
+                        self.save_state()
+                        self._drag_state_saved = True
                     for b, (ox,oy) in self._move_off.items():
                         b.x = snap_wp[0]+ox;  b.y = snap_wp[1]+oy
         elif self._ld_mode == 'band':
@@ -1039,6 +1123,9 @@ class Game:
             if self._ld_down_s:
                 ddx = cp[0]-self._ld_down_s[0]; ddy = cp[1]-self._ld_down_s[1]
                 if ddx*ddx+ddy*ddy >= DRAG_DIST**2:
+                    if not getattr(self, '_drag_state_saved', False):
+                        self.save_state()
+                        self._drag_state_saved = True
                     self._resize_body.resize(self._resize_handle, snap_wp[0], snap_wp[1])
 
     # ── draw ────────────────────────────────────────────────────────────────────

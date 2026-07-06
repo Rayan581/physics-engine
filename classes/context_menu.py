@@ -182,7 +182,10 @@ class ContextMenu:
         if not self._body or not self._mass_edit: return
         try:
             val = float(self._mass_text)
-            self._body.mass = max(0.1, val)
+            new_val = max(0.1, val)
+            if self._body.mass != new_val:
+                if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                self._body.mass = new_val
         except ValueError:
             pass
         self._mass_text = f"{self._body.mass:.1f}"
@@ -192,13 +195,18 @@ class ContextMenu:
         if not self._body or self.is_motor or not self._layer_edit: return
         layers = {l.strip() for l in self._layer_text.split(',') if l.strip()}
         if not layers: layers = {"Default"}
-        self._body.layers = layers
+        if self._body.layers != layers:
+            if hasattr(self, 'save_state_cb'): self.save_state_cb()
+            self._body.layers = layers
         self._layer_text = ", ".join(sorted(layers))
         self._layer_edit = False
         
     def _apply_name(self):
         if not self._body or self.is_motor or not self._name_edit: return
-        self._body.name = self._name_text.strip()
+        new_name = self._name_text.strip()
+        if self._body.name != new_name:
+            if hasattr(self, 'save_state_cb'): self.save_state_cb()
+            self._body.name = new_name
         self._name_text = self._body.name
         self._name_edit = False
         
@@ -217,8 +225,10 @@ class ContextMenu:
             try: b = max(0, min(255, int(self._b_text)))
             except ValueError: pass
             
+        if self._body.color != (r, g, b):
+            if hasattr(self, 'save_state_cb'): self.save_state_cb()
+            self._body.color = (r, g, b)
             
-        self._body.color = (r, g, b)
         self._r_text = f"{r}"
         self._g_text = f"{g}"
         self._b_text = f"{b}"
@@ -233,7 +243,9 @@ class ContextMenu:
 
     def _apply_text(self):
         if not self._body or not self._text_edit or type(self._body).__name__ != "TextBody": return
-        self._body.update_text(self._text_text)
+        if self._body.text != self._text_text:
+            if hasattr(self, 'save_state_cb'): self.save_state_cb()
+            self._body.update_text(self._text_text)
         self._text_edit = False
         
     def _apply_motor(self):
@@ -241,32 +253,40 @@ class ContextMenu:
         import math
         if self._speed_edit:
             try:
-                val = float(self._speed_text)
-                self._body.motor_speed = math.radians(val)
+                val = math.radians(float(self._speed_text))
+                if self._body.motor_speed != val:
+                    if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                    self._body.motor_speed = val
             except ValueError:
                 pass
             self._speed_text = f"{math.degrees(self._body.motor_speed):.0f}"
             self._speed_edit = False
         if self._torque_edit:
             try:
-                val = float(self._torque_text)
-                self._body.motor_torque = max(0.0, val)
+                val = max(0.0, float(self._torque_text))
+                if self._body.motor_torque != val:
+                    if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                    self._body.motor_torque = val
             except ValueError:
                 pass
             self._torque_text = f"{self._body.motor_torque:.0f}"
             self._torque_edit = False
         if self._min_edit:
             try:
-                val = float(self._min_text)
-                self._body.min_angle = math.radians(val)
+                val = math.radians(float(self._min_text))
+                if self._body.min_angle != val:
+                    if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                    self._body.min_angle = val
             except ValueError:
                 pass
             self._min_text = f"{math.degrees(self._body.min_angle):.0f}"
             self._min_edit = False
         if self._max_edit:
             try:
-                val = float(self._max_text)
-                self._body.max_angle = math.radians(val)
+                val = math.radians(float(self._max_text))
+                if self._body.max_angle != val:
+                    if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                    self._body.max_angle = val
             except ValueError:
                 pass
             self._max_text = f"{math.degrees(self._body.max_angle):.0f}"
@@ -276,24 +296,37 @@ class ContextMenu:
         if not self._body: return
         if self.is_motor:
             if self._ctrl_speed_edit:
-                try: self._body.control_speed = max(0.0, float(self._ctrl_speed_text))
+                try: 
+                    val = max(0.0, float(self._ctrl_speed_text))
+                    if self._body.control_speed != val:
+                        if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                        self._body.control_speed = val
                 except ValueError: pass
                 self._ctrl_speed_text = f"{self._body.control_speed:.1f}"
                 self._ctrl_speed_edit = False
         else:
             if self._thrust_edit:
-                try: self._body.control_thrust = float(self._thrust_text)
+                try: 
+                    val = float(self._thrust_text)
+                    if self._body.control_thrust != val:
+                        if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                        self._body.control_thrust = val
                 except ValueError: pass
                 self._thrust_text = f"{self._body.control_thrust:.1f}"
                 self._thrust_edit = False
             if self._max_vel_edit:
-                try: self._body.control_max_vel = float(self._max_vel_text)
+                try: 
+                    val = float(self._max_vel_text)
+                    if self._body.control_max_vel != val:
+                        if hasattr(self, 'save_state_cb'): self.save_state_cb()
+                        self._body.control_max_vel = val
                 except ValueError: pass
                 self._max_vel_text = f"{self._body.control_max_vel:.1f}"
                 self._max_vel_edit = False
 
     def handle_key(self, ev) -> bool:
         if self._listening_ctrl:
+            if hasattr(self, 'save_state_cb'): self.save_state_cb()
             if ev.key in (pygame.K_ESCAPE, pygame.K_BACKSPACE, pygame.K_DELETE):
                 setattr(self._body, self._listening_ctrl, "")
             else:
@@ -417,8 +450,10 @@ class ContextMenu:
             self._apply_motor()
             
             if self._fixed_btn().collidepoint(pos):
+                if hasattr(self, 'save_state_cb'): self.save_state_cb()
                 self._body.motor_enabled = not self._body.motor_enabled
             if self._limits_btn().collidepoint(pos):
+                if hasattr(self, 'save_state_cb'): self.save_state_cb()
                 self._body.limits_enabled = not self._body.limits_enabled
             return
         
@@ -513,6 +548,7 @@ class ContextMenu:
         self._apply_controls()
 
         if self._fixed_btn().collidepoint(pos):
+            if hasattr(self, 'save_state_cb'): self.save_state_cb()
             self._body.fixed = not self._body.fixed
         if self._res_minus().collidepoint(pos):
             self._body.restitution = max(0.0, round(self._body.restitution - 0.1, 1))
@@ -549,6 +585,7 @@ class ContextMenu:
             self._update_alpha(pos, alpha_r)
             
         if self._outline_btn().collidepoint(pos):
+            if hasattr(self, 'save_state_cb'): self.save_state_cb()
             self._body.show_outline = not self._body.show_outline
             
         if self._target_fill_btn().collidepoint(pos):

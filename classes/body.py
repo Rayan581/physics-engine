@@ -61,7 +61,7 @@ class Body:
         self._snap()
 
     def _snap(self):
-        self._init = dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=0.0, av=0.0)
+        self._init = dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=self.angle, av=0.0)
 
     def reset(self):
         s = self._init
@@ -139,7 +139,7 @@ class Body:
         self.ctrl_right = d.get("ctrl_right", "")
         self.control_thrust = d.get("control_thrust", 2000.0)
         self.control_max_vel = d.get("control_max_vel", 500.0)
-        self._init = d.get("_init", dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=0.0, av=0.0))
+        self._init = d.get("_init", dict(x=self.x, y=self.y, vx=0.0, vy=0.0, angle=self.angle, av=0.0))
 
     @staticmethod
     def from_dict(d: dict):
