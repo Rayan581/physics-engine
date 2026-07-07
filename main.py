@@ -1,5 +1,6 @@
 import time
 
+# Starting the engine
 print("Starting physics engine...")
 start = time.time()
 from classes.game import Game
