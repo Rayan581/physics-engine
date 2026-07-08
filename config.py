@@ -6,7 +6,7 @@ TITLE  = "Physics Engine"
 # Beyond this distance from world origin in any direction, bodies are frozen
 WORLD_KILL_LIMIT = 50_000   # pixels
 
-# Colors class
+# Colors
 class Colors:
     WHITE = (255, 255, 255)
     BLACK = (0,   0,   0)
