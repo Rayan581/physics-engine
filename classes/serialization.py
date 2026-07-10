@@ -11,6 +11,8 @@ def serialize(bodies, joints, camera_data=None, scene_script_path=None) -> dict:
     data = {"bodies": [], "joints": []}
     
     for b in bodies:
+        if getattr(b, 'transient', False):
+            continue
         d = b.to_dict()
         d["id"] = body_to_id[b]
         data["bodies"].append(d)
