@@ -1,0 +1,57 @@
+{
+  "bodies": [
+    {
+      "type": "RectBody",
+      "name": "target_box",
+      "x": -50.0,
+      "y": -50.0,
+      "vx": 0,
+      "vy": 0,
+      "angle": 0.0,
+      "angular_velocity": 0.0,
+      "mass": 1.0,
+      "restitution": 0.5,
+      "friction": 0.5,
+      "fixed": false,
+      "layers": [
+        "Default"
+      ],
+      "color": [
+        255,
+        0,
+        0
+      ],
+      "alpha": 255,
+      "show_outline": true,
+      "outline_color": [
+        40,
+        30,
+        20
+      ],
+      "ctrl_up": "",
+      "ctrl_down": "",
+      "ctrl_left": "",
+      "ctrl_right": "",
+      "control_thrust": 2000.0,
+      "control_max_vel": 500.0,
+      "_init": {
+        "x": -50.0,
+        "y": -50.0,
+        "vx": 0.0,
+        "vy": 0.0,
+        "angle": 0.0,
+        "av": 0.0
+      },
+      "width": 100.0,
+      "height": 100.0,
+      "id": "17836922699093392"
+    }
+  ],
+  "joints": [],
+  "camera": {
+    "x": 168.9674891685202,
+    "y": -251.94912552086458,
+    "zoom": 0.351787629191992
+  },
+  "script_path": "D:/sandbox/Python/Games/Pygame/Physics Engine/example_script.py"
+}

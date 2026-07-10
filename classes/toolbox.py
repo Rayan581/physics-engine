@@ -253,6 +253,11 @@ class Toolbox:
         self._action_btns.append(TextButton('import', 'Load Obj',     pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh2)))
 
         y += bh2 + 14
+        # Script menu
+        self._action_btns.append(TextButton('load_script', 'Load Script', pygame.Rect(self.rect.x + pad,          y, bw2, bh2)))
+        self._action_btns.append(TextButton('clear_script','Clr Script',  pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh2)))
+
+        y += bh2 + 14
         # AI menu
         self._action_btns.append(TextButton('load_ai', 'Load AI',     pygame.Rect(self.rect.x + pad,          y, bw2, bh2)))
         self._action_btns.append(TextButton('run_ai',  'Run AI',      pygame.Rect(self.rect.x + pad + bw2 + 2, y, bw2, bh2)))

@@ -1,6 +1,6 @@
 import json
 
-def serialize(bodies, joints, camera_data=None) -> dict:
+def serialize(bodies, joints, camera_data=None, scene_script_path=None) -> dict:
     body_to_id = {}
     for b in bodies:
         if not hasattr(b, 'id'):
@@ -23,6 +23,9 @@ def serialize(bodies, joints, camera_data=None) -> dict:
         
     if camera_data:
         data["camera"] = camera_data
+        
+    if scene_script_path:
+        data["script_path"] = scene_script_path
         
     return data
 
@@ -72,11 +75,12 @@ def deserialize(data: dict, offset_x=0.0, offset_y=0.0):
             joints.append(j)
             
     camera_data = data.get("camera", {})
-    return bodies, joints, camera_data
+    script_path = data.get("script_path", None)
+    return bodies, joints, camera_data, script_path
 
-def save_to_file(filepath: str, bodies: list, joints: list, camera_data: dict = None):
+def save_to_file(filepath: str, bodies: list, joints: list, camera_data: dict = None, scene_script_path: str = None):
     with open(filepath, 'w') as f:
-        json.dump(serialize(bodies, joints, camera_data), f, indent=2)
+        json.dump(serialize(bodies, joints, camera_data, scene_script_path), f, indent=2)
 
 def load_from_file(filepath: str, offset_x=0.0, offset_y=0.0):
     with open(filepath, 'r') as f:

@@ -65,12 +65,15 @@ class Game:
 
         self.undo_stack = []
         self.redo_stack = []
+        
+        self.scene_script = None
+        self.scene_script_path = None
 
     # ── undo/redo ───────────────────────────────────────────────────────────────
 
     def save_state(self):
         from classes.serialization import serialize
-        state = serialize(self.bodies, self.joints)
+        state = serialize(self.bodies, self.joints, None, getattr(self, 'scene_script_path', None))
         self.undo_stack.append(state)
         if len(self.undo_stack) > 20:
             self.undo_stack.pop(0)
@@ -83,7 +86,11 @@ class Game:
         self.redo_stack.append(current_state)
         
         state = self.undo_stack.pop()
-        self.bodies, self.joints, _ = deserialize(state)
+        self.bodies, self.joints, _, self.scene_script_path = deserialize(state)
+        if self.scene_script_path:
+            self._load_scene_script(self.scene_script_path)
+        else:
+            self.scene_script = None
         self.selected.clear()
         self.ctx_menu.close()
 
@@ -94,7 +101,11 @@ class Game:
         self.undo_stack.append(current_state)
         
         state = self.redo_stack.pop()
-        self.bodies, self.joints, _ = deserialize(state)
+        self.bodies, self.joints, _, self.scene_script_path = deserialize(state)
+        if self.scene_script_path:
+            self._load_scene_script(self.scene_script_path)
+        else:
+            self.scene_script = None
         self.selected.clear()
         self.ctx_menu.close()
 
@@ -152,6 +163,12 @@ class Game:
     # ── physics ─────────────────────────────────────────────────────────────────
 
     def _physics_step(self, dt: float):
+        if self.scene_script and hasattr(self.scene_script, 'update'):
+            try:
+                self.scene_script.update(dt)
+            except Exception as e:
+                print(f"SceneScript update error: {e}")
+                
         # Apply magnetic repulsion from cursor
         m_pos = pygame.mouse.get_pos()
         cp = self._canvas_pos(m_pos)
@@ -278,15 +295,21 @@ class Game:
             self.camera.cam_x = 0.0
             self.camera.cam_y = 0.0
             self.camera.zoom = 1.0
+            self.scene_script = None
+            self.scene_script_path = None
         elif action == 'save':
             path = get_save_path()
             if path:
                 cam_data = {"x": self.camera.cam_x, "y": self.camera.cam_y, "zoom": self.camera.zoom}
-                save_to_file(path, self.bodies, self.joints, cam_data)
+                save_to_file(path, self.bodies, self.joints, cam_data, getattr(self, 'scene_script_path', None))
         elif action == 'load':
             path = get_open_path()
             if path:
-                self.bodies, self.joints, cam_data = load_from_file(path)
+                self.bodies, self.joints, cam_data, self.scene_script_path = load_from_file(path)
+                if getattr(self, 'scene_script_path', None):
+                    self._load_scene_script(self.scene_script_path)
+                else:
+                    self.scene_script = None
                 if cam_data:
                     self.camera.cam_x = cam_data.get("x", 0.0)
                     self.camera.cam_y = cam_data.get("y", 0.0)
@@ -302,10 +325,19 @@ class Game:
         elif action == 'import':
             path = get_open_path()
             if path:
-                new_bodies, new_joints, _ = load_from_file(path)
+                new_bodies, new_joints, _, _ = load_from_file(path)
                 self.bodies.extend(new_bodies)
                 self.joints.extend(new_joints)
                 self.selected = set(new_bodies)
+        elif action == 'load_script':
+            from classes.serialization import get_script_path
+            path = get_script_path()
+            if path:
+                self.scene_script_path = path
+                self._load_scene_script(path)
+        elif action == 'clear_script':
+            self.scene_script = None
+            self.scene_script_path = None
         elif action == 'load_ai':
             from classes.serialization import get_script_path
             import importlib.util
@@ -348,6 +380,24 @@ class Game:
             
             if getattr(self, 'trainer_class', None):
                 self._start_ai_playback()
+
+    def _load_scene_script(self, path):
+        import importlib.util
+        try:
+            spec = importlib.util.spec_from_file_location("scene_script", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if hasattr(module, 'SceneScript'):
+                self.scene_script = module.SceneScript(self)
+                if hasattr(self.scene_script, 'setup'):
+                    self.scene_script.setup()
+                print(f"Loaded SceneScript from {path}")
+            else:
+                print(f"No SceneScript class found in {path}")
+                self.scene_script = None
+        except Exception as e:
+            print(f"Failed to load scene script: {e}")
+            self.scene_script = None
 
     # ── AI Integration ──────────────────────────────────────────────────────────
 
@@ -687,8 +737,9 @@ class Game:
                     if getattr(b, 'ctrl_left', None) and is_pressed(b.ctrl_left): b.vx -= b.control_thrust * dt
                     if getattr(b, 'ctrl_right', None) and is_pressed(b.ctrl_right): b.vx += b.control_thrust * dt
                     
-                    # Apply velocity cap
-                    if getattr(b, 'control_max_vel', 0) > 0:
+                    # Apply velocity cap only if the body has manual controls assigned
+                    has_ctrl = any(getattr(b, attr, None) for attr in ('ctrl_up', 'ctrl_down', 'ctrl_left', 'ctrl_right'))
+                    if has_ctrl and getattr(b, 'control_max_vel', 0) > 0:
                         speed = math.hypot(b.vx, b.vy)
                         if speed > b.control_max_vel:
                             scale = b.control_max_vel / speed
@@ -761,6 +812,12 @@ class Game:
 
     def handle_events(self):
         for ev in pygame.event.get():
+            if self.scene_script and hasattr(self.scene_script, 'on_event'):
+                try:
+                    self.scene_script.on_event(ev)
+                except Exception:
+                    pass
+                    
             if ev.type == pygame.QUIT:
                 self.running = False
 
@@ -1397,6 +1454,12 @@ class Game:
     def _draw(self):
         cam = self.camera
         
+        if self.scene_script and hasattr(self.scene_script, 'draw'):
+            try:
+                self.scene_script.draw(self.canvas, self.camera)
+            except Exception:
+                pass
+                
         if self.show_grid:
             self._draw_grid(cam)
 

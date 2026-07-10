@@ -21,6 +21,12 @@ This engine serves a dual purpose:
 - **Visual Callbacks**: View your agent's learning progress in real-time without disrupting the training process. The custom `RenderCallback` handles periodic visual rollouts.
 - **State Machine Control**: The engine elegantly handles transitions between human `playing`, AI `training`, and `ai_playing` states, complete with dynamic Fast-Forward controls to accelerate physics calculations during training.
 
+### 📜 Scene Scripting
+- **Dynamic Python Integration**: Attach standalone Python scripts to any `.json` scene to inject custom logic into the environment.
+- **Deep Loop Access**: Scripts hook directly into the `update(dt)`, `draw(canvas, camera)`, and `on_event(event)` loops, ensuring they run synchronously with the physics engine.
+- **AI Synchronized**: Any script logic (like moving platforms or custom spawning rules) operates flawlessly in the background even during 4,000+ FPS Fast-Forward AI training.
+- **Example Included**: Check out `example_scene.json` and `example_script.py` to see how you can dynamically track and apply forces to objects in real-time.
+
 ## Included Environments
 
 ### Pendulum Balancing (`pendulum_ppo.py`)
@@ -72,3 +78,9 @@ python main.py
 2. Click **Load AI** from the left toolbar and select a trainer script (e.g., `pendulum_ppo.py`).
 3. Click **Run AI** to begin training.
 4. While training, you can press **`F`** to toggle Fast-Forward mode. Fast-Forward mode disables Pygame rendering to massively increase the steps-per-second throughput of the AI model.
+
+### Using Scene Scripts
+1. Build and save a scene or load an existing one (e.g., `example_scene.json`).
+2. Click **Load Script** from the left toolbar and select a script (e.g., `example_script.py`).
+3. Press **Spacebar** to play the simulation. The script will automatically intercept objects and apply custom logic.
+4. If you click **Save Scene**, the path to your active script is permanently embedded into the `.json` file, so it automatically loads the next time you open the scene!
